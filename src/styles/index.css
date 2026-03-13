@@ -1,0 +1,32 @@
+@import './tailwind.css';
+@import './theme.css';
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Pink outlined scrollbar */
+.scrollbar-pink::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-pink::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-pink::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid #ec4899;
+  border-radius: 4px;
+}
+.scrollbar-pink::-webkit-scrollbar-thumb:hover {
+  border-color: #f472b6;
+}
+.scrollbar-pink::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Firefox */
+.scrollbar-pink {
+  scrollbar-width: thin;
+  scrollbar-color: #ec4899 transparent;
+}

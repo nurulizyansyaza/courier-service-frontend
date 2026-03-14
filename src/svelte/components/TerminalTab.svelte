@@ -74,7 +74,7 @@
   ~-_         _-~ /_______________________________/    \`-_         _-~
      ~ ----- ~                                            ~ ----- ~`
 
-  const COURIER_ART = ` \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 
+  const COURIER_ART = ` \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557
 \u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
 \u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D
 \u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u255D  \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
@@ -112,26 +112,13 @@
     const trimmed = currentInput.trim()
     if (!trimmed) return
 
-    if (!isConnected) {
-      if (trimmed === '/connect') {
-        handleCommand(trimmed)
-      } else {
-        history = [
-          ...history,
-          { type: 'error', content: 'Not connected. Type /connect to reconnect.', timestamp: Date.now() },
-        ]
-      }
+    if (handleCommand(trimmed)) {
       currentInput = ''
       resetTextareaHeight()
       return
     }
 
-    if (trimmed.startsWith('/') || trimmed === 'clear' || trimmed === 'exit') {
-      handleCommand(trimmed)
-    } else {
-      executeCalculation(trimmed)
-    }
-
+    executeCalculation(trimmed)
     currentInput = ''
     resetTextareaHeight()
   }
@@ -142,107 +129,82 @@
     }
   }
 
-  function handleCommand(cmd: string) {
-    const lower = cmd.toLowerCase().trim()
+  function handleCommand(cmd: string): boolean {
+    const trimmed = cmd.trim()
+    const lower = trimmed.toLowerCase()
 
     if (lower === '/connect') {
-      if (isConnected) {
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'info', content: 'Already connected.', timestamp: Date.now() },
-        ]
-      } else {
+      if (!isConnected) {
         isConnected = true
+        history = [{ type: 'info', content: '✓ Connected to Courier CLI', timestamp: Date.now() }]
         showWelcome = true
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'info', content: 'Reconnected to courier-service-cli.', timestamp: Date.now() },
-        ]
+        return true
+      } else {
+        history = [...history, { type: 'error', content: '✗ Already connected', timestamp: Date.now() }]
+        return true
       }
-      return
     }
 
     if (!isConnected) {
-      history = [
-        ...history,
-        { type: 'error', content: 'Not connected. Type /connect to reconnect.', timestamp: Date.now() },
-      ]
-      return
+      history = [...history, { type: 'error', content: '✗ CLI not connected. Type /connect to reconnect.', timestamp: Date.now() }]
+      return true
     }
 
-    if (lower.startsWith('/change use ')) {
-      const fw = lower.replace('/change use ', '').trim() as 'react' | 'vue' | 'svelte'
-      if (['react', 'vue', 'svelte'].includes(fw)) {
-        framework = fw
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'info', content: `Framework switched to ${fw}.`, timestamp: Date.now() },
-        ]
-      } else {
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'error', content: `Unknown framework "${fw}". Use react, vue, or svelte.`, timestamp: Date.now() },
-        ]
-      }
-      return
-    }
+    if (lower.startsWith('/change ')) {
+      const parts = trimmed.substring(8).trim().split(' ')
 
-    if (lower.startsWith('/change mode ')) {
-      const mode = lower.replace('/change mode ', '').trim() as 'cost' | 'time'
-      if (['cost', 'time'].includes(mode)) {
-        onupdate({
-          calculationType: mode,
-          output: '',
-          error: '',
-          hasExecuted: false,
-        })
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'info', content: `Mode switched to ${mode === 'cost' ? 'Delivery Cost' : 'Delivery Time'}.`, timestamp: Date.now() },
-        ]
-      } else {
-        history = [
-          ...history,
-          { type: 'command', content: cmd, timestamp: Date.now() },
-          { type: 'error', content: `Unknown mode "${mode}". Use cost or time.`, timestamp: Date.now() },
-        ]
+      if (parts[0] === 'use' && parts[1]) {
+        const targetFramework = parts[1].toLowerCase()
+        if (targetFramework === 'react' || targetFramework === 'vue' || targetFramework === 'svelte') {
+          framework = targetFramework as 'react' | 'vue' | 'svelte'
+          history = [...history, { type: 'info', content: `✓ Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js`, timestamp: Date.now() }]
+          return true
+        } else {
+          history = [...history, { type: 'error', content: `✗ Unknown framework "${parts[1]}". Available: react, vue, svelte`, timestamp: Date.now() }]
+          return true
+        }
       }
-      return
+
+      if (parts[0] === 'mode' && parts[1]) {
+        const targetMode = parts[1].toLowerCase()
+        if (targetMode === 'cost' || targetMode === 'time') {
+          onupdate({ calculationType: targetMode as 'cost' | 'time' })
+          history = [...history, { type: 'info', content: `✓ Mode switched to ${targetMode === 'cost' ? 'Delivery Cost' : 'Delivery Time Estimation'}`, timestamp: Date.now() }]
+          return true
+        } else {
+          history = [...history, { type: 'error', content: `✗ Unknown mode "${parts[1]}". Available: cost, time`, timestamp: Date.now() }]
+          return true
+        }
+      }
+
+      history = [...history, { type: 'error', content: '✗ Invalid /change command. Try: /change use react | /change mode cost', timestamp: Date.now() }]
+      return true
     }
 
     if (lower === 'clear') {
-      history = [...history, { type: 'clear', content: '', timestamp: Date.now() }]
-      showWelcome = false
-      return
+      history = [...history, { type: 'clear', content: cmd, timestamp: Date.now() }]
+      setTimeout(() => {
+        if (scrollAreaRef && clearMarkerRef) {
+          clearMarkerRef.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 50)
+      return true
     }
 
     if (lower === '/restart') {
-      history = [
-        ...history,
-        { type: 'command', content: cmd, timestamp: Date.now() },
-        { type: 'welcome', content: '', timestamp: Date.now() },
-      ]
-      showWelcome = false
-      return
+      history = [...history, { type: 'welcome', content: 'restart', timestamp: Date.now() }]
+      return true
     }
 
     if (lower === 'exit') {
       isConnected = false
-      showWelcome = false
       history = []
-      return
+      showWelcome = false
+      onupdate({ input: '', output: '', error: '', hasExecuted: false, executionTransitSnapshot: [], renamedPackages: [] })
+      return true
     }
 
-    history = [
-      ...history,
-      { type: 'command', content: cmd, timestamp: Date.now() },
-      { type: 'error', content: `Unknown command: ${cmd}. Type /help for available commands.`, timestamp: Date.now() },
-    ]
+    return false
   }
 
   function executeCalculation(input: string) {

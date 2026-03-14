@@ -85,8 +85,8 @@ export function TerminalTab({
     switch (action.type) {
       case 'connect':
         setIsConnected(true);
-        setHistory([]);
         setShowWelcome(true);
+        setHistory([{ type: 'welcome', content: 'reconnect', timestamp: Date.now() }]);
         action.historyEntries.forEach(e => addToHistory(e));
         break;
       case 'already-connected':
@@ -121,8 +121,8 @@ export function TerminalTab({
         break;
       case 'exit':
         setIsConnected(false);
-        setHistory([]);
         setShowWelcome(false);
+        setHistory([]);
         onUpdate(action.tabUpdates);
         break;
     }
@@ -141,7 +141,6 @@ export function TerminalTab({
 
     addToHistory({ type: "input", content: input });
     setIsGenerating(true);
-    setShowWelcome(false);
 
     setTimeout(() => {
       syncOffers();
@@ -165,80 +164,6 @@ export function TerminalTab({
         className="flex-1 overflow-y-auto scrollbar-pink p-4 sm:p-6 font-mono text-sm"
         onScroll={handleScroll}
       >
-        {/* Welcome screen */}
-        {showWelcome && (
-          <div className="mb-4 sm:mb-6">
-            <div className="text-xs sm:text-sm text-zinc-400 space-y-1 mb-3 sm:mb-4">
-              <div className="text-pink-400 font-semibold text-sm sm:text-base md:text-lg">Welcome to Courier CLI!</div>
-              <div className="text-zinc-500 text-xs sm:text-sm">Calculate delivery costs and optimize delivery times with real time package tracking</div>
-            </div>
-
-            <div className="mb-3 sm:mb-4">
-              <div className="flex flex-col">
-                <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
-{"\n" + MOTORCYCLE_ART}
-                </pre>
-                <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
-{"\n" + COURIER_ART + "\n"}
-                </pre>
-              </div>
-            </div>
-
-            <div className="flex gap-1 text-zinc-600 text-[9px] sm:text-[10px] mb-3 sm:mb-4">
-              <span className="text-emerald-400">●</span>
-              <span>Connected to Courier Service</span>
-            </div>
-
-            {/* Available Offers */}
-            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
-              <div className="text-cyan-400/80 mb-1.5 sm:mb-2 text-xs sm:text-sm">Available Offer Codes:</div>
-              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
-              <div className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">Code | Distance (km) | Weight (kg)</div>
-              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
-              {session.offers.map((o) => {
-                const dist = o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`;
-                return (
-                  <div key={o.code} className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">
-                    {`${o.code.padEnd(8)}| ${dist.padEnd(13)} | ${o.minWeight} - ${o.maxWeight}`}
-                  </div>
-                );
-              })}
-              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
-            </div>
-
-            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-
-            {/* Input format help */}
-            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
-              <div className="text-pink-400/70 mb-1 text-xs sm:text-sm">Input Format:</div>
-              <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
-                <div>Line 1: <span className="text-zinc-500">base_delivery_cost no_of_packages</span></div>
-                <div>Line 2+: <span className="text-zinc-500">pkg_id weight_kg distance_km offer_code</span></div>
-                {tab.calculationType === "time" && (
-                  <div>Last line: <span className="text-zinc-500">no_of_vehicles max_speed max_weight</span></div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-
-            {/* Commands help */}
-            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
-              <div className="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
-              <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
-                <div><span className="text-emerald-400">/change use</span> <span className="text-zinc-500">react | vue | svelte</span> - Switch framework</div>
-                <div><span className="text-emerald-400">/change mode</span> <span className="text-zinc-500">cost | time</span> - Switch calculation mode</div>
-                <div><span className="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
-                <div><span className="text-cyan-400">/restart</span> - Show welcome screen again</div>
-                <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
-                <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
-              </div>
-            </div>
-
-            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-          </div>
-        )}
-
         {/* History entries */}
         {history.map((entry, idx) => (
           <div key={idx} className="mb-3">
@@ -289,7 +214,7 @@ export function TerminalTab({
                   <span className="text-pink-400 select-none">❯</span>
                   <div className="text-zinc-300 whitespace-pre-wrap break-all">{entry.content}</div>
                 </div>
-                {idx === lastClearIndex && (
+                {idx === lastClearIndex && idx >= history.length - 1 && (
                   <div style={{ height: transitCount > 0 ? 'calc(100vh - 262px)' : 'calc(100vh - 210px)' }}></div>
                 )}
               </div>

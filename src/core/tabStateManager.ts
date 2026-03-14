@@ -20,7 +20,9 @@ function getDefaultFramework(): Framework {
 function createDefaultState(): TabUIState {
   return {
     currentInput: '',
-    history: [],
+    history: [
+      { type: 'welcome', content: 'initial', timestamp: Date.now() },
+    ],
     framework: getDefaultFramework(),
     isGenerating: false,
     showWelcome: true,

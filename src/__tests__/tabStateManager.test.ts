@@ -10,7 +10,9 @@ describe('tabStateManager', () => {
     it('returns default state for a new tab', () => {
       const state = getTabState('tab-1');
       expect(state.currentInput).toBe('');
-      expect(state.history).toEqual([]);
+      expect(state.history).toEqual([
+        expect.objectContaining({ type: 'welcome', content: 'initial' }),
+      ]);
       expect(state.framework).toBe('react');
       expect(state.isGenerating).toBe(false);
       expect(state.showWelcome).toBe(true);

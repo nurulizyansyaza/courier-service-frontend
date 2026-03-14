@@ -82,7 +82,7 @@ function handleCommand(cmd: string): boolean {
   switch (action.type) {
     case 'connect':
       isConnected.value = true
-      history.value = []
+      history.value = [{ type: 'welcome', content: 'reconnect', timestamp: Date.now() }]
       showWelcome.value = true
       action.historyEntries.forEach(e => addToHistory(e))
       break
@@ -190,110 +190,6 @@ function getDiscountPercent(result: ParsedResult): string | number {
       class="flex-1 overflow-y-auto scrollbar-pink p-4 sm:p-6 font-mono text-sm"
       @scroll="handleScroll"
     >
-      <!-- Welcome screen -->
-      <div v-if="showWelcome" class="mb-4 sm:mb-6">
-        <div class="text-xs sm:text-sm text-zinc-400 space-y-1 mb-3 sm:mb-4">
-          <div class="text-pink-400 font-semibold text-sm sm:text-base md:text-lg">
-            Welcome to Courier CLI!
-          </div>
-          <div class="text-zinc-500 text-xs sm:text-sm">
-            Calculate delivery costs and optimize delivery times with real time package tracking
-          </div>
-        </div>
-
-        <div class="mb-3 sm:mb-4">
-          <div class="flex flex-col">
-            <pre
-              class="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto"
-              v-text="MOTORCYCLE_ART"
-            ></pre>
-            <pre
-              class="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto"
-              v-text="COURIER_ART"
-            ></pre>
-          </div>
-        </div>
-
-        <div class="flex gap-1 text-zinc-600 text-[9px] sm:text-[10px] mb-3 sm:mb-4">
-          <span class="text-emerald-400">●</span>
-          <span>Connected to Courier Service</span>
-        </div>
-
-        <!-- Available Offers -->
-        <div class="text-zinc-600 text-xs mb-3 sm:mb-4">
-          <div class="text-cyan-400/80 mb-1.5 sm:mb-2 text-xs sm:text-sm">
-            Available Offer Codes:
-          </div>
-          <div class="text-zinc-700 text-[9px] sm:text-[10px]">
-            ─────────────────────────────────────────
-          </div>
-          <div class="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">
-            Code | Distance (km) | Weight (kg)
-          </div>
-          <div class="text-zinc-700 text-[9px] sm:text-[10px]">
-            ─────────────────────────────────────────
-          </div>
-          <div
-            v-for="o in session.offers"
-            :key="o.code"
-            class="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs"
-          >
-            {{ `${o.code.padEnd(8)}| ${formatOfferDist(o).padEnd(13)} | ${o.minWeight} - ${o.maxWeight}` }}
-          </div>
-          <div class="text-zinc-700 text-[9px] sm:text-[10px]">
-            ─────────────────────────────────────────
-          </div>
-        </div>
-
-        <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-
-        <!-- Input format help -->
-        <div class="text-zinc-600 text-xs mb-3 sm:mb-4">
-          <div class="text-pink-400/70 mb-1 text-xs sm:text-sm">Input Format:</div>
-          <div class="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
-            <div>
-              Line 1: <span class="text-zinc-500">base_delivery_cost no_of_packages</span>
-            </div>
-            <div>
-              Line 2+: <span class="text-zinc-500">pkg_id weight_kg distance_km offer_code</span>
-            </div>
-            <div v-if="tab.calculationType === 'time'">
-              Last line:
-              <span class="text-zinc-500">no_of_vehicles max_speed max_weight</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-
-        <!-- Commands help -->
-        <div class="text-zinc-600 text-xs mb-3 sm:mb-4">
-          <div class="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
-          <div class="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
-            <div>
-              <span class="text-emerald-400">/change use</span>
-              <span class="text-zinc-500"> react | vue | svelte</span> - Switch framework
-            </div>
-            <div>
-              <span class="text-emerald-400">/change mode</span>
-              <span class="text-zinc-500"> cost | time</span> - Switch calculation mode
-            </div>
-            <div>
-              <span class="text-amber-400">clear</span> - Clear screen (scroll up to see history)
-            </div>
-            <div>
-              <span class="text-cyan-400">/restart</span> - Show welcome screen again
-            </div>
-            <div><span class="text-red-400">exit</span> - Exit and reset terminal</div>
-            <div>
-              <span class="text-emerald-400">/connect</span> - Reconnect after exit
-            </div>
-          </div>
-        </div>
-
-        <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
-      </div>
-
       <!-- History entries -->
       <div v-for="(entry, idx) in history" :key="idx" class="mb-3">
         <!-- Input -->
@@ -526,7 +422,7 @@ function getDiscountPercent(result: ParsedResult): string | number {
               <div class="text-zinc-300 whitespace-pre-wrap break-all">{{ entry.content }}</div>
             </div>
             <div
-              v-if="idx === getLastClearIndex(history)"
+              v-if="idx === getLastClearIndex(history) && idx >= history.length - 1"
               :style="{ height: tab.transitPackages.length > 0 ? 'calc(100vh - 262px)' : 'calc(100vh - 210px)' }"
             ></div>
           </div>

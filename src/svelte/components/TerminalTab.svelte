@@ -148,9 +148,9 @@
     history = [...history, { type: 'input', content: input, timestamp: Date.now() }]
     isGenerating = true
 
-    setTimeout(() => {
+    setTimeout(async () => {
       syncOffers()
-      const result = runCalculation(input, tab.calculationType, tab.transitPackages)
+      const result = await runCalculation(input, tab.calculationType, tab.transitPackages)
       onupdate(result.tabUpdates)
       history = [...history, ...result.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
       isGenerating = false

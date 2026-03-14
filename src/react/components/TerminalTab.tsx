@@ -142,9 +142,9 @@ export function TerminalTab({
     addToHistory({ type: "input", content: input });
     setIsGenerating(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       syncOffers();
-      const result = runCalculation(input, tab.calculationType, tab.transitPackages);
+      const result = await runCalculation(input, tab.calculationType, tab.transitPackages);
       result.historyEntries.forEach(e => addToHistory(e));
       onUpdate(result.tabUpdates);
       setIsGenerating(false);

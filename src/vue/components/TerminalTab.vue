@@ -140,9 +140,9 @@ function handleExecute() {
   isGenerating.value = true
   showWelcome.value = false
 
-  setTimeout(() => {
+  setTimeout(async () => {
     syncOffers()
-    const result = runCalculation(input, props.tab.calculationType, props.tab.transitPackages)
+    const result = await runCalculation(input, props.tab.calculationType, props.tab.transitPackages)
     result.historyEntries.forEach(e => addToHistory(e))
     emit('update', result.tabUpdates)
     isGenerating.value = false

@@ -150,5 +150,13 @@ export default defineConfig(async () => {
       __ENTRY__: JSON.stringify(ENTRY_POINTS[framework]),
     },
     assetsInclude: ['**/*.svg', '**/*.csv'],
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+        },
+      },
+    },
   };
 });

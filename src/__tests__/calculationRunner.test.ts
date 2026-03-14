@@ -1,10 +1,14 @@
 import { runCalculation } from '@/core/calculationRunner';
+import { vi } from 'vitest';
+
+// Mock fetch to simulate API being unavailable (forces local fallback)
+global.fetch = vi.fn(() => Promise.reject(new Error('No API'))) as unknown as typeof fetch;
 
 describe('runCalculation', () => {
   describe('cost calculation', () => {
-    it('returns success with output and history for valid input', () => {
+    it('returns success with output and history for valid input', async () => {
       const input = '100 3\nPKG1 5 5 OFR001\nPKG2 15 5 OFR002\nPKG3 10 100 OFR003';
-      const result = runCalculation(input, 'cost', []);
+      const result = await runCalculation(input, 'cost', []);
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -18,9 +22,9 @@ describe('runCalculation', () => {
       }
     });
 
-    it('result contains parsedResults in historyEntries', () => {
+    it('result contains parsedResults in historyEntries', async () => {
       const input = '100 1\nPKG1 50 100 OFR001';
-      const result = runCalculation(input, 'cost', []);
+      const result = await runCalculation(input, 'cost', []);
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -33,9 +37,9 @@ describe('runCalculation', () => {
   });
 
   describe('time calculation', () => {
-    it('returns success with valid input and empty transit', () => {
+    it('returns success with valid input and empty transit', async () => {
       const input = '100 5\nPKG1 50 30 OFR001\nPKG2 75 125 OFR002\nPKG3 175 100 OFR003\nPKG4 110 60 OFR002\nPKG5 155 95 OFR001\n2 70 200';
-      const result = runCalculation(input, 'time', []);
+      const result = await runCalculation(input, 'time', []);
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -46,9 +50,9 @@ describe('runCalculation', () => {
       }
     });
 
-    it('updates transitPackages in tabUpdates', () => {
+    it('updates transitPackages in tabUpdates', async () => {
       const input = '100 5\nPKG1 50 30 OFR001\nPKG2 75 125 OFR002\nPKG3 175 100 OFR003\nPKG4 110 60 OFR002\nPKG5 155 95 OFR001\n2 70 200';
-      const result = runCalculation(input, 'time', []);
+      const result = await runCalculation(input, 'time', []);
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -60,8 +64,8 @@ describe('runCalculation', () => {
   });
 
   describe('invalid input', () => {
-    it('returns failure with error message', () => {
-      const result = runCalculation('invalid input', 'cost', []);
+    it('returns failure with error message', async () => {
+      const result = await runCalculation('invalid input', 'cost', []);
 
       expect(result.success).toBe(false);
       if (!result.success) {

@@ -24,11 +24,11 @@
         "./src/*"
       ]
     },
-    "jsx": "react-jsx"
+    "jsx": "preserve"
   },
   "include": [
     "src/core",
-    "src/react",
+    "src/vue",
     "src/vite-env.d.ts"
   ]
 }

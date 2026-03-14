@@ -47,8 +47,8 @@ async function handleSubmit() {
 
   if (cmd === 'clear') {
     history.value = [
-      { type: 'system', text: '─── Terminal Cleared ───' },
-      { type: 'system', text: '' },
+      { type: 'system', text: '# Terminal cleared.' },
+      { type: 'system', text: '# Commands: login <user> <pass> | guest | register <user> <pass> | clear' },
     ];
     isProcessing.value = false;
     scrollToBottom();
@@ -56,47 +56,69 @@ async function handleSubmit() {
   }
 
   if (cmd === 'guest') {
+    isProcessing.value = true;
+    pushLines({ type: 'output', text: 'Authenticating as guest...' });
     await new Promise((r) => setTimeout(r, 400));
+    pushLines({ type: 'success', text: 'Access granted. Redirecting...' });
+    await new Promise((r) => setTimeout(r, 350));
     loginAsGuest();
-    isProcessing.value = false;
     return;
   }
 
   if (cmd === 'login') {
-    if (parts.length < 3) {
+    const [, username, password] = parts;
+    if (!username || !password) {
       pushLines({ type: 'error', text: 'Usage: login <username> <password>' });
       isProcessing.value = false;
       return;
     }
+    isProcessing.value = true;
+    pushLines({ type: 'output', text: `Authenticating ${username}...` });
     await new Promise((r) => setTimeout(r, 500));
-    const result = login(parts[1], parts[2]);
+    const result = login(username, password);
     if (!result.success) {
       pushLines({ type: 'error', text: result.error || 'Login failed' });
+      isProcessing.value = false;
+    } else {
+      pushLines({ type: 'success', text: `Access granted. Welcome, ${username}.` });
     }
-    isProcessing.value = false;
     return;
   }
 
   if (cmd === 'register') {
-    if (parts.length < 3 || parts.length > 3) {
-      pushLines({ type: 'error', text: 'Usage: register <username> <password>' });
+    const [, username, password] = parts;
+    if (!username || !password) {
+      pushLines(
+        { type: 'error', text: 'Usage: register <username> <password>' },
+        { type: 'output', text: 'Creates a vendor account.' },
+      );
       isProcessing.value = false;
       return;
     }
-    await new Promise((r) => setTimeout(r, 400));
-    const result = register(parts[1], parts[2]);
-    if (result.success) {
-      pushLines({ type: 'success', text: `Vendor "${parts[1]}" registered & logged in.` });
-    } else {
-      pushLines({ type: 'error', text: result.error || 'Registration failed' });
+    if (parts.length > 3) {
+      pushLines(
+        { type: 'error', text: 'Register only creates vendor accounts. No role parameter needed.' },
+        { type: 'output', text: 'Usage: register <username> <password>' },
+      );
+      isProcessing.value = false;
+      return;
     }
-    isProcessing.value = false;
+    isProcessing.value = true;
+    pushLines({ type: 'output', text: `Creating vendor account "${username}"...` });
+    await new Promise((r) => setTimeout(r, 400));
+    const regResult = register(username, password);
+    if (!regResult.success) {
+      pushLines({ type: 'error', text: regResult.error || 'Registration failed' });
+      isProcessing.value = false;
+      return;
+    }
+    pushLines({ type: 'success', text: `Vendor account created. Welcome, ${username}.` });
     return;
   }
 
   pushLines(
-    { type: 'error', text: `Unknown command: ${cmd}` },
-    { type: 'output', text: 'Available: login <user> <pass> | register <user> <pass> | guest | clear' }
+    { type: 'error', text: `Unknown command: "${cmd}"` },
+    { type: 'output', text: 'Commands: login <user> <pass> | guest | register <user> <pass> | clear' },
   );
   isProcessing.value = false;
 }

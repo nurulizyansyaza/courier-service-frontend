@@ -10,7 +10,7 @@ const { session, isActingAsVendor } = provideSession();
 const currentView = computed(() => {
   if (!session.currentUser) return 'auth';
   if (session.currentUser.role === 'guest' || isActingAsVendor()) return 'terminal';
-  const user = session.users.find((u) => u.username === session.currentUser?.username);
+  const user = session.users.find((u) => u.username.toLowerCase() === session.currentUser!.username.toLowerCase());
   if (user && !user.email) return 'email';
   return 'terminal';
 });

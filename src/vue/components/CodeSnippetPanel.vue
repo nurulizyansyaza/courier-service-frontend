@@ -252,7 +252,7 @@ function preventCopy(e: Event) {
       <div class="flex-1 overflow-auto font-mono text-xs sm:text-sm scrollbar-pink">
         <!-- Locked Section: Core Logic (canvas-rendered, hidden from inspect) -->
         <div
-          style="user-select: none; -webkit-user-select: none"
+          style="user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none"
           @copy.prevent
           @cut.prevent
           @contextmenu.prevent

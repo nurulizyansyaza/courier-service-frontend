@@ -48,6 +48,7 @@ export default defineConfig(async () => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        ...(framework === 'vue' ? { vue: 'vue/dist/vue.esm-bundler.js' } : {}),
       },
     },
     build: {

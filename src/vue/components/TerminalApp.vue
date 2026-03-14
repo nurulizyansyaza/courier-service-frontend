@@ -40,7 +40,7 @@ function closeTab(id: string) {
   const idx = tabs.value.findIndex((t) => t.id === id);
   tabs.value = tabs.value.filter((t) => t.id !== id);
   if (activeTabId.value === id) {
-    activeTabId.value = tabs.value[Math.max(0, idx - 1)].id;
+    activeTabId.value = tabs.value[tabs.value.length - 1].id;
   }
 }
 
@@ -92,7 +92,7 @@ const roleConfig = computed(() => {
       </div>
 
       <!-- Tab Bar -->
-      <div class="flex-1 flex items-center gap-0 overflow-x-auto" style="scrollbar-width: none">
+      <div class="flex-1 flex items-center gap-0 overflow-x-auto" style="scrollbar-width: none; -ms-overflow-style: none">
         <div
           v-for="tab in tabs"
           :key="tab.id"
@@ -130,13 +130,12 @@ const roleConfig = computed(() => {
     </div>
 
     <!-- Active Tab Content -->
-    <div class="flex-1 overflow-hidden">
-      <TerminalTab
-        v-if="activeTab"
-        :tab="activeTab"
-        :userRole="role"
-        @update="(updates: Partial<TabData>) => updateTab(activeTab!.id, updates)"
-      />
-    </div>
+    <TerminalTab
+      v-if="activeTab"
+      :key="activeTab.id"
+      :tab="activeTab"
+      :userRole="role"
+      @update="(updates: Partial<TabData>) => updateTab(activeTab!.id, updates)"
+    />
   </div>
 </template>

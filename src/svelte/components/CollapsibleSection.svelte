@@ -23,33 +23,29 @@
   let isOpen = $state(defaultOpen)
 </script>
 
-<div class="border border-[#2d1b4e]/50 rounded-lg overflow-hidden flex flex-col {borderClass}" class:xl:!flex={true}>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="flex items-center gap-2 px-3 py-2 bg-[#1a0b2e]/60 xl:cursor-default"
+<div class="flex flex-col {borderClass} bg-[#0d0118] xl:min-h-0">
+  <button
     onclick={() => isOpen = !isOpen}
+    class="px-4 py-2 bg-[#1a0b2e]/50 border-b border-[#2d1b4e] flex items-center gap-2 w-full xl:cursor-default"
   >
-    <span class="xl:hidden">
+    <span class="xl:hidden text-zinc-500">
       {#if isOpen}
-        <ChevronDown class="w-4 h-4 text-zinc-500" />
+        <ChevronDown class="w-3.5 h-3.5" />
       {:else}
-        <ChevronRight class="w-4 h-4 text-zinc-500" />
+        <ChevronRight class="w-3.5 h-3.5" />
       {/if}
     </span>
     {#if icon}
       {@render icon()}
     {/if}
-    <span class="text-xs font-mono {titleColor}">{title}</span>
+    <span class="text-sm {titleColor} font-mono">{title}</span>
     {#if badge}
       {@render badge()}
     {/if}
+  </button>
+  <div class="{isOpen ? 'flex-1 flex flex-col' : 'hidden'} xl:!flex xl:flex-1 xl:flex-col overflow-hidden">
+    {#if children}
+      {@render children()}
+    {/if}
   </div>
-  {#if isOpen}
-    <div class="flex-1 flex flex-col min-h-0">
-      {#if children}
-        {@render children()}
-      {/if}
-    </div>
-  {/if}
 </div>

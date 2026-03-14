@@ -64,7 +64,7 @@ if (prevConfig) {
   if (prevPkgs.length > 0) {
     console.log(`Removing ${current} dependencies...`);
     try {
-      execSync(`pnpm remove ${prevPkgs.join(' ')}`, { cwd: root, stdio: 'inherit' });
+      execSync(`npm remove ${prevPkgs.join(' ')}`, { cwd: root, stdio: 'inherit' });
     } catch {
       // Some packages may not have been installed yet — that's fine
     }
@@ -74,8 +74,8 @@ if (prevConfig) {
 // Install new framework deps
 const nextConfig = FRAMEWORKS[target];
 console.log(`\nInstalling ${target} dependencies...`);
-execSync(`pnpm add ${nextConfig.deps.join(' ')}`, { cwd: root, stdio: 'inherit' });
-execSync(`pnpm add -D ${nextConfig.devDeps.join(' ')}`, { cwd: root, stdio: 'inherit' });
+execSync(`npm install ${nextConfig.deps.join(' ')}`, { cwd: root, stdio: 'inherit' });
+execSync(`npm install -D ${nextConfig.devDeps.join(' ')}`, { cwd: root, stdio: 'inherit' });
 
 // Update index.html entry point
 const indexPath = resolve(root, 'index.html');
@@ -109,4 +109,4 @@ if (existsSync(tsconfigPath)) {
 
 console.log(`\n✓ Switched to ${target}`);
 console.log(`  Entry: ${nextConfig.entry}`);
-console.log(`  Run "pnpm dev" to start the dev server.\n`);
+console.log(`  Run "npm run dev" to start the dev server.\n`);

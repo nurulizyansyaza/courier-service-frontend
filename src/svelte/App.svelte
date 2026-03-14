@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createSession, useSession } from './sessionStore';
+  import { createSession, useSession } from './sessionStore.svelte';
   import AuthScreen from './components/AuthScreen.svelte';
   import EmailSetupScreen from './components/EmailSetupScreen.svelte';
   import TerminalApp from './components/TerminalApp.svelte';

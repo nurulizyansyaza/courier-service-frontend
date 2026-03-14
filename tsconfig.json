@@ -24,10 +24,10 @@
         "./src/*"
       ]
     },
-    "jsx": "preserve"
+    "jsx": "react-jsx"
   },
   "include": [
     "src/core",
-    "src/vue"
+    "src/react"
   ]
 }

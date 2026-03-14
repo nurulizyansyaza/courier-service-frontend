@@ -4,7 +4,7 @@
 
   let { result }: { result: AdminResult } = $props()
 
-  let isSuccess = $derived(result.type !== 'error')
+  let isSuccess = $derived(result.success)
   let borderColor = $derived(isSuccess ? 'border-cyan-500/30' : 'border-red-500/30')
   let bgColor = $derived(isSuccess ? 'bg-cyan-500/5' : 'bg-red-500/5')
 </script>

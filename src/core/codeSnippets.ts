@@ -92,11 +92,11 @@ function DeliveryCostCalculator() {
               className="w-full px-3 py-2 flex justify-between items-center text-sm"
             >
               <span className="text-pink-200 font-mono">{result.id}</span>
-              <span className="text-pink-400 font-bold">\\${result.totalCost}</span>
+              <span className="text-pink-400 font-bold">\${result.totalCost}</span>
             </button>
             {expandedId === result.id && (
               <div className="px-3 pb-2 text-xs text-pink-300/70 space-y-1 border-t border-pink-500/10 pt-2">
-                <p>Discount: \\${result.discount}</p>
+                <p>Discount: \${result.discount}</p>
                 <p>Est. time: {result.time}h</p>
               </div>
             )}
@@ -193,7 +193,7 @@ function DeliveryCostCalculator() {
     '        @click="selectedId = selectedId === result.id ? null : result.id"',
     '      >',
     '        <div class="text-teal-200 font-mono text-sm">{{ result.id }}</div>',
-    '        <div class="text-teal-400 font-bold text-lg mt-1">\\${{ result.totalCost }}</div>',
+    '        <div class="text-teal-400 font-bold text-lg mt-1">${{ result.totalCost }}</div>',
     '      </div>',
     '    </div>',
     '    <!-- Detail modal -->',
@@ -209,7 +209,7 @@ function DeliveryCostCalculator() {
     '        >close\x3C/button>',
     '      </div>',
     '      <div class="mt-2 text-xs text-teal-300/70 space-y-1">',
-    '        <p>Discount: \\${{ results.find(r => r.id === selectedId)?.discount }}\x3C/p>',
+    '        <p>Discount: ${{ results.find(r => r.id === selectedId)?.discount }}\x3C/p>',
     '        <p>Est. time: {{ results.find(r => r.id === selectedId)?.time }}h\x3C/p>',
     '      </div>',
     '    </div>',
@@ -311,7 +311,7 @@ function DeliveryCostCalculator() {
     '        class:text-orange-200={true}',
     '        on:click={() => activeId = activeId === result.id ? null : result.id}',
     '      >',
-    '        {result.id} — \\${result.totalCost}',
+    '        {result.id} — ${result.totalCost}',
     '      </button>',
     '    {/each}',
     '  </div>',
@@ -321,7 +321,7 @@ function DeliveryCostCalculator() {
     '      transition:slide={{ duration: 150 }}',
     '    >',
     '      <p><strong class="text-orange-200">{activeResult.id}</strong>\x3C/p>',
-    '      <p>Discount: \\${activeResult.discount}\x3C/p>',
+    '      <p>Discount: ${activeResult.discount}\x3C/p>',
     '      <p>Est. time: {activeResult.time}h\x3C/p>',
     '    </div>',
     '  {/if}',

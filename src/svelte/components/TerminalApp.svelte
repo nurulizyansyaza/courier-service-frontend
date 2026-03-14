@@ -1,149 +1,143 @@
 <script lang="ts">
   import { Plus, X, LogOut, ArrowLeft, Shield, Users, User } from 'lucide-svelte';
-  import type { TabData } from '../../core/types';
-  import { useSession } from '../sessionStore';
+  import type { TabData, UserRole } from '../../core/types';
+  import { useSession } from '../sessionStore.svelte';
   import TerminalTab from './TerminalTab.svelte';
 
   const { session, logout, isActingAsVendor, backToAdmin } = useSession();
 
-  let nextTabId = 2;
-
-  function createEmptyTab(id: number, title: string): TabData {
+  function createEmptyTab(id: string, title: string): TabData {
     return {
       id,
       title,
+      calculationType: 'cost',
       input: '',
       output: '',
-      history: [],
-      calcType: 'cost' as const,
-      activeCommandIndex: -1,
-      commandHistory: [],
-      editedCode: null,
-      isCodeEdited: false,
-      showCodePanel: false,
-      showEditConfirm: false,
+      error: '',
+      hasExecuted: false,
+      transitPackages: [],
+      executionTransitSnapshot: [],
+      renamedPackages: [],
+      isGenerating: false,
+      commandType: 'delivery',
     };
   }
 
-  let tabs: TabData[] = $state([createEmptyTab(1, 'Terminal 1')]);
-  let activeTabId = $state(1);
+  let tabs: TabData[] = $state([createEmptyTab('1', 'Terminal 1')]);
+  let activeTabId = $state('1');
 
   const activeTab = $derived(tabs.find((t) => t.id === activeTabId));
+  const userRole = $derived((session.currentUser?.role || 'guest') as UserRole);
+  const username = $derived(session.currentUser?.username || 'guest');
+  const actingAsVendor = $derived(isActingAsVendor());
+
+  const roleConfig: Record<UserRole, { label: string; color: string }> = {
+    super_admin: { label: 'Super Admin', color: 'text-purple-400' },
+    vendor: { label: 'Vendor', color: 'text-cyan-400' },
+    guest: { label: 'Guest', color: 'text-zinc-400' },
+  };
+
+  const rc = $derived(roleConfig[userRole]);
 
   function addNewTab() {
-    const id = nextTabId++;
-    tabs = [...tabs, createEmptyTab(id, `Terminal ${id}`)];
-    activeTabId = id;
+    const newId = String(Date.now());
+    const newTab = createEmptyTab(newId, `Terminal ${tabs.length + 1}`);
+    tabs = [...tabs, newTab];
+    activeTabId = newId;
   }
 
-  function closeTab(id: number) {
-    if (tabs.length <= 1) return;
-    const idx = tabs.findIndex((t) => t.id === id);
-    tabs = tabs.filter((t) => t.id !== id);
+  function closeTab(id: string) {
+    if (tabs.length === 1) return;
+    const newTabs = tabs.filter((tab) => tab.id !== id);
+    tabs = newTabs;
     if (activeTabId === id) {
-      activeTabId = tabs[Math.max(0, idx - 1)].id;
+      activeTabId = newTabs[newTabs.length - 1].id;
     }
   }
 
-  function updateTab(id: number, updates: Partial<TabData>) {
-    tabs = tabs.map((t) => (t.id === id ? { ...t, ...updates } : t));
-  }
-
-  const role = $derived(session.currentUser?.role || 'guest');
-
-  const roleConfig = $derived.by(() => {
-    const configs: Record<string, { color: string; iconName: string }> = {
-      super_admin: { color: 'purple', iconName: 'shield' },
-      vendor: { color: 'cyan', iconName: 'users' },
-      guest: { color: 'zinc', iconName: 'user' },
-    };
-    return configs[role] || configs.guest;
-  });
-
-  const showBackToAdmin = $derived(isActingAsVendor());
-
-  function roleBadgeClass(color: string): string {
-    switch (color) {
-      case 'purple': return 'bg-purple-500/20 text-purple-400';
-      case 'cyan': return 'bg-cyan-500/20 text-cyan-400';
-      default: return 'bg-zinc-500/20 text-zinc-400';
-    }
+  function updateTab(id: string, updates: Partial<TabData>) {
+    tabs = tabs.map((tab) => (tab.id === id ? { ...tab, ...updates } : tab));
   }
 </script>
 
 <div class="h-screen flex flex-col bg-[#0d0118]">
-  <!-- Top Bar -->
-  <div class="flex items-center gap-2 px-3 py-2 bg-[#1a0b2e] border-b border-[#2d1b4e]">
-    <!-- Back to admin -->
-    {#if showBackToAdmin}
+  <!-- Top Bar: Role badge + Tab Bar + Logout -->
+  <div class="flex items-center bg-[#1a0b2e] border-b border-[#2d1b4e]">
+    <!-- Back to Admin button (when acting as vendor) -->
+    {#if actingAsVendor}
       <button
-        class="p-1.5 text-zinc-400 hover:text-purple-400 transition-colors"
+        onclick={backToAdmin}
+        class="flex items-center gap-1.5 px-3 py-2 border-r border-[#2d1b4e] text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 transition-colors shrink-0"
         title="Back to Admin"
-        onclick={() => backToAdmin()}
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft class="w-3.5 h-3.5" />
+        <span class="text-xs font-mono hidden sm:inline">Admin</span>
       </button>
     {/if}
 
-    <!-- Role badge -->
-    <div class="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-mono {roleBadgeClass(roleConfig.color)}">
-      {#if roleConfig.iconName === 'shield'}
-        <Shield size={12} />
-      {:else if roleConfig.iconName === 'users'}
-        <Users size={12} />
+    <!-- Role Badge -->
+    <div class="flex items-center gap-2 px-3 py-2 border-r border-[#2d1b4e] shrink-0">
+      {#if userRole === 'super_admin'}
+        <Shield class="w-3.5 h-3.5 {rc.color}" />
+      {:else if userRole === 'vendor'}
+        <Users class="w-3.5 h-3.5 {rc.color}" />
       {:else}
-        <User size={12} />
+        <User class="w-3.5 h-3.5 {rc.color}" />
       {/if}
-      <span>{session.currentUser?.username || 'guest'}</span>
+      <span class="text-xs font-mono {rc.color}">{username}</span>
+      <span class="text-[10px] font-mono text-zinc-600 bg-[#251440] px-1.5 py-0.5 rounded">{rc.label}</span>
+      {#if actingAsVendor}
+        <span class="text-[10px] font-mono text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded border border-violet-500/30">
+          via admin
+        </span>
+      {/if}
     </div>
 
-    <!-- Tabs -->
-    <div class="flex-1 flex items-center gap-1 overflow-x-auto mx-2">
+    <!-- Tab Bar -->
+    <div class="flex-1 flex items-center gap-0 overflow-x-auto" style="scrollbar-width: none;">
       {#each tabs as tab (tab.id)}
-        <button
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono transition-colors group whitespace-nowrap {tab.id === activeTabId ? 'bg-pink-500/20 text-pink-400' : 'text-zinc-500 hover:text-zinc-300'}"
-          onclick={() => activeTabId = tab.id}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="group flex items-center gap-2 px-4 py-2.5 border-r border-[#2d1b4e] cursor-pointer transition-colors shrink-0 {activeTabId === tab.id ? 'bg-[#0d0118] text-pink-400' : 'bg-[#1a0b2e] text-zinc-400 hover:bg-[#251440] hover:text-pink-300'}"
+          onclick={() => (activeTabId = tab.id)}
         >
-          <span>{tab.title}</span>
-          {#if tabs.length > 1}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <span
-              class="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
-              onclick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-            >
-              <X size={12} />
-            </span>
-          {/if}
-        </button>
+          <span class="text-sm font-medium">{tab.title}</span>
+          <button
+            onclick={(e) => {
+              e.stopPropagation();
+              closeTab(tab.id);
+            }}
+            class="p-0.5 rounded hover:bg-pink-500/20 {tabs.length === 1 ? 'invisible' : ''}"
+          >
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </div>
       {/each}
-
       <button
-        class="p-1.5 text-zinc-500 hover:text-pink-400 transition-colors"
         onclick={addNewTab}
+        class="p-2.5 text-zinc-400 hover:text-pink-400 hover:bg-[#251440] transition-colors"
       >
-        <Plus size={14} />
+        <Plus class="w-4 h-4" />
       </button>
     </div>
 
     <!-- Logout -->
     <button
-      class="flex items-center gap-1.5 px-2 py-1.5 text-zinc-500 hover:text-red-400 text-xs font-mono transition-colors"
-      onclick={() => logout()}
+      onclick={actingAsVendor ? backToAdmin : logout}
+      class="flex items-center gap-2 px-3 py-2 border-l border-[#2d1b4e] text-zinc-500 hover:text-pink-400 transition-colors shrink-0"
     >
-      <LogOut size={14} />
-      <span class="hidden sm:inline">Logout</span>
+      <LogOut class="w-3.5 h-3.5" />
+      <span class="text-xs font-mono hidden sm:inline">{actingAsVendor ? 'back' : 'logout'}</span>
     </button>
   </div>
 
   <!-- Active Tab Content -->
-  <div class="flex-1 overflow-hidden">
-    {#if activeTab}
-      <TerminalTab
-        tab={activeTab}
-        userRole={role}
-        onupdate={(updates) => updateTab(activeTab.id, updates)}
-      />
-    {/if}
-  </div>
+  {#if activeTab}
+    <TerminalTab
+      tab={activeTab}
+      onupdate={(updates) => updateTab(activeTab.id, updates)}
+      userRole={userRole}
+    />
+  {/if}
 </div>

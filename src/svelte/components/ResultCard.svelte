@@ -5,7 +5,7 @@
   let { result, calculationType }: { result: ParsedResult; calculationType: 'cost' | 'time' } = $props()
 
   let discount = $derived(parseFloat(result.discount) || 0)
-  let deliveryCost = $derived(result.baseCost + result.weight * 10 + result.distance * 5)
+  let deliveryCost = $derived(result.deliveryCost)
   let discountPercent = $derived(discount > 0 ? ((discount / deliveryCost) * 100).toFixed(0) : 0)
 </script>
 

@@ -7,7 +7,7 @@
     parseOutput,
     setOffers,
   } from '../../core/calculations'
-  import { useSession } from '../sessionStore'
+  import { useSession } from '../sessionStore.svelte'
   import CollapsibleSection from './CollapsibleSection.svelte'
   import GeneratingOverlay from './GeneratingOverlay.svelte'
   import TransitSection from './TransitSection.svelte'

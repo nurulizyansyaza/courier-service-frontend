@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { provideSession, useSession } from './sessionStore';
+import { provideSession } from './sessionStore';
 import AuthScreen from './components/AuthScreen.vue';
 import EmailSetupScreen from './components/EmailSetupScreen.vue';
 import TerminalApp from './components/TerminalApp.vue';
 
-provideSession();
-
-const { session, isActingAsVendor } = useSession();
+const { session, isActingAsVendor } = provideSession();
 
 const currentView = computed(() => {
   if (!session.currentUser) return 'auth';

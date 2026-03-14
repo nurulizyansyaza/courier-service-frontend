@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue';
-import { TerminalSquare } from 'lucide-vue-next';
+import { Terminal } from 'lucide-vue-next';
 import type { HistoryLine } from '../../core/types';
 import { WELCOME_LINES } from '../../core/constants';
 import { useSession } from '../sessionStore';
@@ -39,7 +39,7 @@ async function handleSubmit() {
   input.value = '';
   if (!raw) return;
 
-  pushLines({ type: 'input', text: `$ ${raw}` });
+  pushLines({ type: 'input', text: raw });
   isProcessing.value = true;
 
   const parts = raw.split(/\s+/);
@@ -110,71 +110,72 @@ function handleKeyDown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0d0118] flex items-center justify-center p-4 relative overflow-hidden">
+  <div class="min-h-screen bg-[#0d0118] flex items-center justify-center p-4">
     <!-- Background glow -->
-    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl" />
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
+      <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl" />
+    </div>
 
-    <div class="w-full max-w-xl relative z-10">
+    <div class="relative w-full max-w-xl">
       <!-- Terminal Chrome -->
-      <div class="bg-[#1a0b2e] rounded-t-lg border border-b-0 border-[#2d1b4e] px-4 py-3 flex items-center gap-3">
+      <div class="bg-[#1a0b2e] border border-[#2d1b4e] rounded-t-xl px-4 py-3 flex items-center gap-3">
         <div class="flex gap-1.5">
-          <div class="w-3 h-3 rounded-full bg-red-500/80" />
-          <div class="w-3 h-3 rounded-full bg-yellow-500/80" />
-          <div class="w-3 h-3 rounded-full bg-green-500/80" />
+          <div class="w-3 h-3 rounded-full bg-red-500/60" />
+          <div class="w-3 h-3 rounded-full bg-amber-500/60" />
+          <div class="w-3 h-3 rounded-full bg-emerald-500/60" />
         </div>
-        <div class="flex items-center gap-2 text-zinc-400 text-sm">
-          <TerminalSquare :size="14" />
-          <span>Courier Service App</span>
+        <div class="flex-1 flex items-center justify-center gap-2">
+          <Terminal class="w-3.5 h-3.5 text-zinc-500" />
+          <span class="text-xs text-zinc-500 font-mono">Courier Service App</span>
         </div>
+        <div class="w-[54px]" />
       </div>
 
       <!-- Terminal Body -->
       <div
-        class="bg-[#0d0118] border border-[#2d1b4e] rounded-b-lg p-4 cursor-text"
+        class="bg-[#0d0118] border-x border-b border-[#2d1b4e] rounded-b-xl font-mono text-sm cursor-text"
         @click="focusInput"
       >
-        <div ref="scrollRef" class="overflow-y-auto space-y-1 font-mono text-sm" style="max-height: 70vh">
+        <div ref="scrollRef" class="p-4 sm:p-6 overflow-auto" style="max-height: 70vh">
           <!-- History lines -->
-          <div
-            v-for="(line, i) in history"
-            :key="i"
-            :class="[
-              line.type === 'input' ? 'text-pink-400' : '',
-              line.type === 'error' ? 'text-red-400' : '',
-              line.type === 'success' ? 'text-emerald-400' : '',
-              line.type === 'output' ? 'text-cyan-400/80' : '',
-              line.type === 'system' ? 'text-zinc-600' : '',
-            ]"
-          >
-            {{ line.text }}
+          <div v-for="(line, i) in history" :key="i" class="leading-relaxed">
+            <span v-if="line.type === 'input'">
+              <span class="text-pink-400">$ </span>
+              <span class="text-zinc-100">{{ line.text }}</span>
+            </span>
+            <span v-else-if="line.type === 'error'" class="text-red-400">&nbsp;&nbsp;{{ line.text }}</span>
+            <span v-else-if="line.type === 'success'" class="text-emerald-400">&nbsp;&nbsp;{{ line.text }}</span>
+            <span v-else-if="line.type === 'output'" class="text-cyan-400/80">&nbsp;&nbsp;{{ line.text }}</span>
+            <span v-else class="text-zinc-600">{{ line.text }}</span>
           </div>
 
-          <!-- Active input -->
-          <div class="flex items-center gap-2">
-            <span class="text-pink-400 font-bold">$</span>
+          <!-- Active input line -->
+          <div class="flex items-center gap-0 mt-1">
+            <span class="text-pink-400 shrink-0">$ </span>
             <input
               ref="inputRef"
               v-model="input"
               type="text"
-              class="flex-1 bg-transparent outline-none text-pink-100 caret-pink-400 font-mono text-sm"
-              :class="{ 'animate-pulse opacity-50': isProcessing }"
+              class="ml-2 flex-1 bg-transparent border-none outline-none text-zinc-100 font-mono text-sm placeholder:text-zinc-700 disabled:opacity-50 caret-pink-400"
               :disabled="isProcessing"
+              :placeholder="isProcessing ? '' : 'type a command...'"
               autocomplete="off"
               spellcheck="false"
               @keydown="handleKeyDown"
             />
+            <span v-if="isProcessing" class="text-pink-400/50 animate-pulse text-xs ml-2">processing...</span>
           </div>
         </div>
 
         <!-- Mobile Run button -->
-        <div class="mt-3 flex justify-end xl:hidden">
+        <div class="xl:hidden px-4 pb-4 sm:px-6 sm:pb-6 flex justify-end">
           <button
-            class="px-3 py-1.5 bg-pink-500/20 text-pink-400 rounded text-xs font-mono hover:bg-pink-500/30 transition-colors"
-            :disabled="isProcessing"
+            :disabled="isProcessing || !input.trim()"
+            class="px-4 py-1.5 text-sm rounded bg-pink-500/20 text-pink-400 border border-pink-500/30 hover:bg-pink-500/30 transition-colors disabled:opacity-30 font-mono"
             @click="handleSubmit"
           >
-            Run ⏎
+            Run
           </button>
         </div>
       </div>

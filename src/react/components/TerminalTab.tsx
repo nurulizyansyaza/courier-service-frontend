@@ -11,7 +11,7 @@ import {
   Package,
   Loader2,
 } from "lucide-react";
-import type { TabData, TransitPackage, ParsedResult, HistoryEntry } from "../../core/types";
+import type { TabData, TransitPackage, ParsedResult, HistoryEntry, SessionState } from "../../core/types";
 import {
   setOffers,
 } from "../../core/calculations";
@@ -180,7 +180,7 @@ export function TerminalTab({
 
             {entry.type === "result" && entry.parsedResults && (
               <div className="ml-4 space-y-3 mt-2">
-                {entry.parsedResults
+                {[...entry.parsedResults]
                   .sort((a, b) => {
                     if (entry.calculationType !== "time") return 0;
                     if (a.undeliverable && !b.undeliverable) return 1;
@@ -463,7 +463,7 @@ function ResultCard({
 
 // ── Welcome Screen Component ─────────────────────────────────────────────
 
-function WelcomeScreen({ tab, session }: { tab: TabData; session: any }) {
+function WelcomeScreen({ tab, session }: { tab: TabData; session: SessionState }) {
   return (
     <div className="mb-4 sm:mb-6">
       <div className="text-xs sm:text-sm text-zinc-400 space-y-1 mb-3 sm:mb-4">
@@ -492,7 +492,7 @@ function WelcomeScreen({ tab, session }: { tab: TabData; session: any }) {
         <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
         <div className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">Code | Distance (km) | Weight (kg)</div>
         <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
-        {session.offers.map((o: any) => {
+        {session.offers.map((o) => {
           const dist = o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`;
           return (
             <div key={o.code} className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">

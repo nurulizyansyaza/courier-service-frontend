@@ -22,12 +22,6 @@ const ENTRY_POINTS: Record<string, string> = {
 };
 
 function frameworkSwitchPlugin(): Plugin {
-  const ENTRIES: Record<string, string> = {
-    react: '/src/react/main.tsx',
-    vue: '/src/vue/main.ts',
-    svelte: '/src/svelte/main.ts',
-  };
-
   return {
     name: 'framework-switch',
     configureServer(server) {
@@ -73,7 +67,7 @@ function frameworkSwitchPlugin(): Plugin {
             let html = fs.readFileSync(indexPath, 'utf-8');
             html = html.replace(
               /<script type="module" src="[^"]*"><\/script>/,
-              `<script type="module" src="${ENTRIES[target]}"></script>`
+              `<script type="module" src="${ENTRY_POINTS[target]}"></script>`
             );
             fs.writeFileSync(indexPath, html);
 

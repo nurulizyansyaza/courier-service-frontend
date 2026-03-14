@@ -11,35 +11,19 @@ import {
   Package,
   Loader2,
 } from "lucide-react";
-import type { TabData, TransitPackage, ParsedResult } from "../../core/types";
+import type { TabData, TransitPackage, ParsedResult, HistoryEntry } from "../../core/types";
 import {
-  calculateDeliveryCost,
-  calculateDeliveryTimeWithTransit,
-  parseOutput,
   setOffers,
 } from "../../core/calculations";
+import { processCommand } from "../../core/terminalCommands";
+import { runCalculation } from "../../core/calculationRunner";
+import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
+import { getLastClearIndex } from "../../core/utils";
 import { useSession } from "../sessionStore";
 
 interface TerminalTabProps {
   tab: TabData;
   onUpdate: (updates: Partial<TabData>) => void;
-}
-
-// History entry for the terminal
-interface HistoryEntry {
-  type:
-    | "input"
-    | "output"
-    | "result"
-    | "command"
-    | "error"
-    | "info"
-    | "clear"
-    | "welcome";
-  content: string;
-  parsedResults?: ParsedResult[];
-  calculationType?: "cost" | "time";
-  timestamp?: number;
 }
 
 export function TerminalTab({
@@ -84,87 +68,50 @@ export function TerminalTab({
   };
 
   const handleCommand = (cmd: string) => {
-    const trimmed = cmd.trim();
-    const lower = trimmed.toLowerCase();
+    const action = processCommand(cmd, isConnected);
+    if (!action) return false;
 
-    // Handle /connect command
-    if (lower === "/connect") {
-      if (!isConnected) {
+    switch (action.type) {
+      case 'connect':
         setIsConnected(true);
         setHistory([]);
         setShowWelcome(true);
-        addToHistory({ type: "info", content: "✓ Connected to Courier CLI" });
-        return true;
-      } else {
-        addToHistory({ type: "error", content: "✗ Already connected" });
-        return true;
-      }
+        action.historyEntries.forEach(e => addToHistory(e));
+        break;
+      case 'already-connected':
+      case 'not-connected':
+      case 'unknown-framework':
+      case 'unknown-mode':
+      case 'invalid-change':
+        action.historyEntries.forEach(e => addToHistory(e));
+        break;
+      case 'change-framework':
+        setFramework(action.framework);
+        action.historyEntries.forEach(e => addToHistory(e));
+        break;
+      case 'change-mode':
+        onUpdate({ calculationType: action.mode });
+        action.historyEntries.forEach(e => addToHistory(e));
+        break;
+      case 'clear':
+        addToHistory(action.historyEntries[0]);
+        setTimeout(() => {
+          if (scrollAreaRef.current && clearMarkerRef.current) {
+            clearMarkerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 50);
+        break;
+      case 'restart':
+        addToHistory(action.historyEntries[0]);
+        break;
+      case 'exit':
+        setIsConnected(false);
+        setHistory([]);
+        setShowWelcome(false);
+        onUpdate(action.tabUpdates);
+        break;
     }
-
-    if (!isConnected) {
-      addToHistory({ type: "error", content: "✗ CLI not connected. Type /connect to reconnect." });
-      return true;
-    }
-
-    // Handle /change commands
-    if (lower.startsWith("/change ")) {
-      const parts = trimmed.substring(8).trim().split(" ");
-
-      if (parts[0] === "use" && parts[1]) {
-        const targetFramework = parts[1].toLowerCase();
-        if (targetFramework === "react" || targetFramework === "vue" || targetFramework === "svelte") {
-          setFramework(targetFramework as any);
-          addToHistory({ type: "info", content: `✓ Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js` });
-          return true;
-        } else {
-          addToHistory({ type: "error", content: `✗ Unknown framework "${parts[1]}". Available: react, vue, svelte` });
-          return true;
-        }
-      }
-
-      if (parts[0] === "mode" && parts[1]) {
-        const targetMode = parts[1].toLowerCase();
-        if (targetMode === "cost" || targetMode === "time") {
-          onUpdate({ calculationType: targetMode as any });
-          addToHistory({ type: "info", content: `✓ Mode switched to ${targetMode === "cost" ? "Delivery Cost" : "Delivery Time Estimation"}` });
-          return true;
-        } else {
-          addToHistory({ type: "error", content: `✗ Unknown mode "${parts[1]}". Available: cost, time` });
-          return true;
-        }
-      }
-
-      addToHistory({ type: "error", content: `✗ Invalid /change command. Try: /change use react | /change mode cost` });
-      return true;
-    }
-
-    // Handle clear command
-    if (lower === "clear") {
-      addToHistory({ type: "clear", content: cmd });
-      setTimeout(() => {
-        if (scrollAreaRef.current && clearMarkerRef.current) {
-          clearMarkerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 50);
-      return true;
-    }
-
-    // Handle restart command
-    if (lower === "/restart") {
-      addToHistory({ type: "welcome", content: "restart" });
-      return true;
-    }
-
-    // Handle exit command
-    if (lower === "exit") {
-      setIsConnected(false);
-      setHistory([]);
-      setShowWelcome(false);
-      onUpdate({ input: "", output: "", error: "", hasExecuted: false, executionTransitSnapshot: [], renamedPackages: [] });
-      return true;
-    }
-
-    return false;
+    return true;
   };
 
   const handleExecute = () => {
@@ -182,32 +129,10 @@ export function TerminalTab({
     setShowWelcome(false);
 
     setTimeout(() => {
-      try {
-        syncOffers();
-        if (tab.calculationType === "cost") {
-          const result = calculateDeliveryCost(input);
-          const parsedResults = parseOutput(result, "cost", input, []);
-          addToHistory({ type: "output", content: result });
-          addToHistory({ type: "result", content: "", parsedResults, calculationType: "cost" });
-          onUpdate({ output: result, error: "", hasExecuted: true });
-        } else {
-          const transitResult = calculateDeliveryTimeWithTransit(input, tab.transitPackages);
-          const updatedTransit = [...transitResult.stillInTransit, ...transitResult.newTransitPackages];
-          const parsedResults = parseOutput(transitResult.output, "time", input, tab.transitPackages);
-          addToHistory({ type: "output", content: transitResult.output });
-          addToHistory({ type: "result", content: "", parsedResults, calculationType: "time" });
-          onUpdate({
-            output: transitResult.output, error: "", hasExecuted: true,
-            transitPackages: updatedTransit,
-            executionTransitSnapshot: [...tab.transitPackages],
-            renamedPackages: transitResult.renamedPackages,
-          });
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Invalid input";
-        addToHistory({ type: "error", content: errorMsg });
-        onUpdate({ output: "", error: errorMsg, hasExecuted: true });
-      }
+      syncOffers();
+      const result = runCalculation(input, tab.calculationType, tab.transitPackages);
+      result.historyEntries.forEach(e => addToHistory(e));
+      onUpdate(result.tabUpdates);
       setIsGenerating(false);
       setCurrentInput("");
       setTimeout(() => { if (inputRef.current) inputRef.current.style.height = 'auto'; }, 0);
@@ -215,12 +140,7 @@ export function TerminalTab({
   };
 
   const transitCount = tab.transitPackages.length;
-  const frameworkColors = {
-    react: "text-cyan-400",
-    vue: "text-emerald-400",
-    svelte: "text-orange-400",
-  };
-  const lastClearIndex = (() => { for (let i = history.length - 1; i >= 0; i--) { if (history[i].type === "clear") return i; } return -1; })();
+  const lastClearIndex = getLastClearIndex(history);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0d0118]">
@@ -241,40 +161,10 @@ export function TerminalTab({
             <div className="mb-3 sm:mb-4">
               <div className="flex flex-col">
                 <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
-{`
-                            ___
-                          /~   ~\\
-                         |_      |
-                         |/     __-__
-                          \\   /~     ~~-_
-                           ~~ -~~\\       ~\\
-                            /     |        \\
-               ,           /     /          \\
-             //   _ _---~~~    //-_          \\               
-           /  (/~~ )    _____/-__  ~-_       _-\\             _________
-         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
-        /_-~                       _-/'          )~/               /'
-        (___________/           _-~/'         _-~~/             _-~
-     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
-  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
- /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
-;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
-|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
-|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
- \\    ~-----~    /  /~                             )  \\    ~-----~    /
-  ~-_         _-~ /_______________________________/    \`-_         _-~
-     ~ ----- ~                                            ~ ----- ~`}
+{"\n" + MOTORCYCLE_ART}
                 </pre>
                 <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
-{`
- ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
-██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
-██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
-██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
-╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
- ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
-              CLI Version 1.0.0
-`}
+{"\n" + COURIER_ART + "\n"}
                 </pre>
               </div>
             </div>
@@ -410,40 +300,10 @@ export function TerminalTab({
             <div className="mb-3 sm:mb-4">
               <div className="flex flex-col justify-center">
                 <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
-{`
-                            ___
-                          /~   ~\\
-                         |_      |
-                         |/     __-__
-                          \\   /~     ~~-_
-                           ~~ -~~\\       ~\\
-                            /     |        \\
-               ,           /     /          \\
-             //   _ _---~~~    //-_          \\               
-           /  (/~~ )    _____/-__  ~-_       _-\\             _________
-         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
-        /_-~                       _-/'          )~/               /'
-        (___________/           _-~/'         _-~~/             _-~
-     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
-  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
- /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
-;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
-|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
-|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
- \\    ~-----~    /  /~                             )  \\    ~-----~    /
-  ~-_         _-~ /_______________________________/    \`-_         _-~
-     ~ ----- ~                                            ~ ----- ~`}
+{"\n" + MOTORCYCLE_ART}
                 </pre>
                 <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
-{`
- ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
-██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
-██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
-██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
-╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
- ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
-              CLI Version 1.0.0
-`}
+{"\n" + COURIER_ART + "\n"}
                 </pre>
               </div>
             </div>
@@ -485,7 +345,7 @@ export function TerminalTab({
         {isConnected && (
           <div className="flex items-center gap-4 text-[10px] text-zinc-600 mb-2 flex-wrap">
             <span>Mode: <span className="text-pink-400">{tab.calculationType === "cost" ? "Cost" : "Time"}</span></span>
-            <span>Framework: <span className={frameworkColors[framework]}>{framework}</span></span>
+            <span>Framework: <span className={FRAMEWORK_COLORS[framework]}>{framework}</span></span>
             {transitCount > 0 && (
               <span>Transit: <span className="text-amber-400">{transitCount}</span></span>
             )}
@@ -674,40 +534,10 @@ function WelcomeScreen({ tab, session }: { tab: TabData; session: any }) {
       <div className="mb-3 sm:mb-4">
         <div className="flex flex-col">
           <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
-{`
-                            ___
-                          /~   ~\\
-                         |_      |
-                         |/     __-__
-                          \\   /~     ~~-_
-                           ~~ -~~\\       ~\\
-                            /     |        \\
-               ,           /     /          \\
-             //   _ _---~~~    //-_          \\               
-           /  (/~~ )    _____/-__  ~-_       _-\\             _________
-         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
-        /_-~                       _-/'          )~/               /'
-        (___________/           _-~/'         _-~~/             _-~
-     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
-  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
- /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
-;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
-|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
-|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
- \\    ~-----~    /  /~                             )  \\    ~-----~    /
-  ~-_         _-~ /_______________________________/    \`-_         _-~
-     ~ ----- ~                                            ~ ----- ~`}
+{"\n" + MOTORCYCLE_ART}
           </pre>
           <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
-{`
- ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
-██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
-██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
-██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
-╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
- ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
-              CLI Version 1.0.0
-`}
+{"\n" + COURIER_ART + "\n"}
           </pre>
         </div>
       </div>

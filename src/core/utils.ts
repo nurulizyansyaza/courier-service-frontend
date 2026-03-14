@@ -1,3 +1,16 @@
+import type { HistoryEntry } from './types';
+
+export function formatOfferDist(o: { minDistance: number; maxDistance: number }): string {
+  return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`;
+}
+
+export function getLastClearIndex(history: HistoryEntry[]): number {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].type === 'clear') return i;
+  }
+  return -1;
+}
+
 export function parseHelpSections(text: string): { title: string; lines: string[] }[] {
   const sections: { title: string; lines: string[] }[] = []
   const rawLines = text.split('\n')

@@ -2,23 +2,13 @@
 import { ref, computed } from 'vue';
 import { Plus, X } from 'lucide-vue-next';
 import type { TabData } from '../../core/types';
+import {
+  createEmptyTab,
+  addTab,
+  closeTab as closeTabLogic,
+  updateTab as updateTabLogic,
+} from '../../core/tabManager';
 import TerminalTab from './TerminalTab.vue';
-
-function createEmptyTab(id: string, title: string): TabData {
-  return {
-    id,
-    title,
-    calculationType: 'cost',
-    input: '',
-    output: '',
-    error: '',
-    hasExecuted: false,
-    transitPackages: [],
-    executionTransitSnapshot: [],
-    renamedPackages: [],
-    isGenerating: false,
-  };
-}
 
 const tabs = ref<TabData[]>([createEmptyTab('1', 'courier_cli')]);
 const activeTabId = ref<string>('1');
@@ -28,21 +18,21 @@ const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.val
 
 function addNewTab() {
   const id = String(Date.now());
-  tabs.value.push(createEmptyTab(id, `courier_${nextTabNumber}`));
+  const result = addTab(tabs.value, id, `courier_${nextTabNumber}`);
+  tabs.value = result.tabs;
+  activeTabId.value = result.activeTabId;
   nextTabNumber += 1;
-  activeTabId.value = id;
 }
 
 function closeTab(id: string) {
-  if (tabs.value.length <= 1) return;
-  tabs.value = tabs.value.filter((t) => t.id !== id);
-  if (activeTabId.value === id) {
-    activeTabId.value = tabs.value[tabs.value.length - 1].id;
-  }
+  const result = closeTabLogic(tabs.value, id, activeTabId.value);
+  if (!result) return;
+  tabs.value = result.tabs;
+  activeTabId.value = result.activeTabId;
 }
 
 function updateTab(id: string, updates: Partial<TabData>) {
-  tabs.value = tabs.value.map((t) => (t.id === id ? { ...t, ...updates } : t));
+  tabs.value = updateTabLogic(tabs.value, id, updates);
 }
 </script>
 

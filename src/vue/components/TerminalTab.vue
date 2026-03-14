@@ -1,22 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { Package, Loader2 } from 'lucide-vue-next'
-import type { TabData, TransitPackage, ParsedResult } from '../../core/types'
-import {
-  calculateDeliveryCost,
-  calculateDeliveryTimeWithTransit,
-  parseOutput,
-  setOffers,
-} from '../../core/calculations'
+import type { TabData, TransitPackage, ParsedResult, HistoryEntry } from '../../core/types'
+import { setOffers } from '../../core/calculations'
+import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
+import { formatOfferDist, getLastClearIndex } from '../../core/utils'
+import { processCommand } from '../../core/terminalCommands'
+import { runCalculation } from '../../core/calculationRunner'
 import { useSession } from '../sessionStore'
-
-interface HistoryEntry {
-  type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome'
-  content: string
-  parsedResults?: ParsedResult[]
-  calculationType?: 'cost' | 'time'
-  timestamp?: number
-}
 
 const props = defineProps<{ tab: TabData }>()
 const emit = defineEmits<{ update: [updates: Partial<TabData>] }>()
@@ -34,46 +25,6 @@ const isGenerating = ref(false)
 const showWelcome = ref(true)
 const shouldAutoScroll = ref(true)
 const isConnected = ref(true)
-
-const frameworkColors: Record<string, string> = {
-  react: 'text-cyan-400',
-  vue: 'text-emerald-400',
-  svelte: 'text-orange-400',
-}
-
-const motorcycleArt = `
-                            ___
-                          /~   ~\\
-                         |_      |
-                         |/     __-__
-                          \\   /~     ~~-_
-                           ~~ -~~\\       ~\\
-                            /     |        \\
-               ,           /     /          \\
-             //   _ _---~~~    //-_          \\               
-           /  (/~~ )    _____/-__  ~-_       _-\\             _________
-         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
-        /_-~                       _-/'          )~/               /'
-        (___________/           _-~/'         _-~~/             _-~
-     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
-  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
- /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
-;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
-|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
-|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
- \\    ~-----~    /  /~                             )  \\    ~-----~    /
-  ~-_         _-~ /_______________________________/    \`-_         _-~
-     ~ ----- ~                                            ~ ----- ~`
-
-const courierArt = `
- ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
-██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
-██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
-██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
-╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
- ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
-              CLI Version 1.0.0
-`
 
 // Auto-scroll to bottom when history changes
 watch(
@@ -105,116 +56,51 @@ function addToHistory(entry: HistoryEntry) {
   history.value = [...history.value, { ...entry, timestamp: Date.now() }]
 }
 
-function getLastClearIndex(): number {
-  for (let i = history.value.length - 1; i >= 0; i--) {
-    if (history.value[i].type === 'clear') return i
-  }
-  return -1
-}
-
-function formatOfferDist(o: { minDistance: number; maxDistance: number }): string {
-  return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`
-}
-
 function handleCommand(cmd: string): boolean {
-  const trimmed = cmd.trim()
-  const lower = trimmed.toLowerCase()
+  const action = processCommand(cmd, isConnected.value)
+  if (!action) return false
 
-  if (lower === '/connect') {
-    if (!isConnected.value) {
+  switch (action.type) {
+    case 'connect':
       isConnected.value = true
       history.value = []
       showWelcome.value = true
-      addToHistory({ type: 'info', content: '✓ Connected to Courier CLI' })
-      return true
-    } else {
-      addToHistory({ type: 'error', content: '✗ Already connected' })
-      return true
-    }
+      action.historyEntries.forEach(e => addToHistory(e))
+      break
+    case 'already-connected':
+    case 'not-connected':
+    case 'unknown-framework':
+    case 'unknown-mode':
+    case 'invalid-change':
+      action.historyEntries.forEach(e => addToHistory(e))
+      break
+    case 'change-framework':
+      framework.value = action.framework
+      action.historyEntries.forEach(e => addToHistory(e))
+      break
+    case 'change-mode':
+      emit('update', { calculationType: action.mode })
+      action.historyEntries.forEach(e => addToHistory(e))
+      break
+    case 'clear':
+      addToHistory(action.historyEntries[0])
+      setTimeout(() => {
+        if (scrollAreaRef.value && clearMarkerRef.value) {
+          clearMarkerRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 50)
+      break
+    case 'restart':
+      addToHistory(action.historyEntries[0])
+      break
+    case 'exit':
+      isConnected.value = false
+      history.value = []
+      showWelcome.value = false
+      emit('update', action.tabUpdates)
+      break
   }
-
-  if (!isConnected.value) {
-    addToHistory({ type: 'error', content: '✗ CLI not connected. Type /connect to reconnect.' })
-    return true
-  }
-
-  if (lower.startsWith('/change ')) {
-    const parts = trimmed.substring(8).trim().split(' ')
-
-    if (parts[0] === 'use' && parts[1]) {
-      const targetFramework = parts[1].toLowerCase()
-      if (targetFramework === 'react' || targetFramework === 'vue' || targetFramework === 'svelte') {
-        framework.value = targetFramework as 'react' | 'vue' | 'svelte'
-        addToHistory({
-          type: 'info',
-          content: `✓ Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js`,
-        })
-        return true
-      } else {
-        addToHistory({
-          type: 'error',
-          content: `✗ Unknown framework "${parts[1]}". Available: react, vue, svelte`,
-        })
-        return true
-      }
-    }
-
-    if (parts[0] === 'mode' && parts[1]) {
-      const targetMode = parts[1].toLowerCase()
-      if (targetMode === 'cost' || targetMode === 'time') {
-        emit('update', { calculationType: targetMode as 'cost' | 'time' })
-        addToHistory({
-          type: 'info',
-          content: `✓ Mode switched to ${targetMode === 'cost' ? 'Delivery Cost' : 'Delivery Time Estimation'}`,
-        })
-        return true
-      } else {
-        addToHistory({
-          type: 'error',
-          content: `✗ Unknown mode "${parts[1]}". Available: cost, time`,
-        })
-        return true
-      }
-    }
-
-    addToHistory({
-      type: 'error',
-      content: '✗ Invalid /change command. Try: /change use react | /change mode cost',
-    })
-    return true
-  }
-
-  if (lower === 'clear') {
-    addToHistory({ type: 'clear', content: cmd })
-    setTimeout(() => {
-      if (scrollAreaRef.value && clearMarkerRef.value) {
-        clearMarkerRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    }, 50)
-    return true
-  }
-
-  if (lower === '/restart') {
-    addToHistory({ type: 'welcome', content: 'restart' })
-    return true
-  }
-
-  if (lower === 'exit') {
-    isConnected.value = false
-    history.value = []
-    showWelcome.value = false
-    emit('update', {
-      input: '',
-      output: '',
-      error: '',
-      hasExecuted: false,
-      executionTransitSnapshot: [],
-      renamedPackages: [],
-    })
-    return true
-  }
-
-  return false
+  return true
 }
 
 function handleExecute() {
@@ -223,9 +109,7 @@ function handleExecute() {
 
   if (handleCommand(input)) {
     currentInput.value = ''
-    setTimeout(() => {
-      if (inputRef.value) inputRef.value.style.height = 'auto'
-    }, 0)
+    setTimeout(() => { if (inputRef.value) inputRef.value.style.height = 'auto' }, 0)
     return
   }
 
@@ -234,39 +118,13 @@ function handleExecute() {
   showWelcome.value = false
 
   setTimeout(() => {
-    try {
-      syncOffers()
-      if (props.tab.calculationType === 'cost') {
-        const result = calculateDeliveryCost(input)
-        const parsed = parseOutput(result, 'cost', input, [])
-        addToHistory({ type: 'output', content: result })
-        addToHistory({ type: 'result', content: '', parsedResults: parsed, calculationType: 'cost' })
-        emit('update', { output: result, error: '', hasExecuted: true })
-      } else {
-        const transitResult = calculateDeliveryTimeWithTransit(input, props.tab.transitPackages)
-        const updatedTransit = [...transitResult.stillInTransit, ...transitResult.newTransitPackages]
-        const parsed = parseOutput(transitResult.output, 'time', input, props.tab.transitPackages)
-        addToHistory({ type: 'output', content: transitResult.output })
-        addToHistory({ type: 'result', content: '', parsedResults: parsed, calculationType: 'time' })
-        emit('update', {
-          output: transitResult.output,
-          error: '',
-          hasExecuted: true,
-          transitPackages: updatedTransit,
-          executionTransitSnapshot: [...props.tab.transitPackages],
-          renamedPackages: transitResult.renamedPackages,
-        })
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Invalid input'
-      addToHistory({ type: 'error', content: errorMsg })
-      emit('update', { output: '', error: errorMsg, hasExecuted: true })
-    }
+    syncOffers()
+    const result = runCalculation(input, props.tab.calculationType, props.tab.transitPackages)
+    result.historyEntries.forEach(e => addToHistory(e))
+    emit('update', result.tabUpdates)
     isGenerating.value = false
     currentInput.value = ''
-    setTimeout(() => {
-      if (inputRef.value) inputRef.value.style.height = 'auto'
-    }, 0)
+    setTimeout(() => { if (inputRef.value) inputRef.value.style.height = 'auto' }, 0)
   }, 350)
 }
 
@@ -324,11 +182,11 @@ function getDiscountPercent(result: ParsedResult): string | number {
           <div class="flex flex-col">
             <pre
               class="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto"
-              v-text="motorcycleArt"
+              v-text="MOTORCYCLE_ART"
             ></pre>
             <pre
               class="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto"
-              v-text="courierArt"
+              v-text="COURIER_ART"
             ></pre>
           </div>
         </div>
@@ -639,13 +497,13 @@ function getDiscountPercent(result: ParsedResult): string | number {
 
         <!-- Clear -->
         <template v-if="entry.type === 'clear'">
-          <div :ref="idx === getLastClearIndex() ? (el) => (clearMarkerRef = el as HTMLDivElement) : undefined">
+          <div :ref="idx === getLastClearIndex(history) ? (el) => (clearMarkerRef = el as HTMLDivElement) : undefined">
             <div class="flex gap-2">
               <span class="text-pink-400 select-none">❯</span>
               <div class="text-zinc-300 whitespace-pre-wrap break-all">{{ entry.content }}</div>
             </div>
             <div
-              v-if="idx === getLastClearIndex() && idx >= history.length - 1"
+              v-if="idx === getLastClearIndex(history) && idx >= history.length - 1"
               :style="{ height: 'calc(100vh - 260px)' }"
             ></div>
           </div>
@@ -667,11 +525,11 @@ function getDiscountPercent(result: ParsedResult): string | number {
               <div class="flex flex-col">
                 <pre
                   class="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto"
-                  v-text="motorcycleArt"
+                  v-text="MOTORCYCLE_ART"
                 ></pre>
                 <pre
                   class="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto"
-                  v-text="courierArt"
+                  v-text="COURIER_ART"
                 ></pre>
               </div>
             </div>
@@ -774,11 +632,11 @@ function getDiscountPercent(result: ParsedResult): string | number {
           <div class="flex flex-col justify-center">
             <pre
               class="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto"
-              v-text="motorcycleArt"
+              v-text="MOTORCYCLE_ART"
             ></pre>
             <pre
               class="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto"
-              v-text="courierArt"
+              v-text="COURIER_ART"
             ></pre>
           </div>
         </div>
@@ -830,7 +688,7 @@ function getDiscountPercent(result: ParsedResult): string | number {
         >
         <span
           >Framework:
-          <span :class="frameworkColors[framework]">{{ framework }}</span></span
+          <span :class="FRAMEWORK_COLORS[framework]">{{ framework }}</span></span
         >
         <span v-if="tab.transitPackages.length > 0"
           >Transit:

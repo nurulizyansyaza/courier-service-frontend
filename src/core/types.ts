@@ -130,3 +130,11 @@ export interface CommandHistoryEntry {
   output: string;
   isError: boolean;
 }
+
+export interface HistoryEntry {
+  type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome';
+  content: string;
+  parsedResults?: ParsedResult[];
+  calculationType?: 'cost' | 'time';
+  timestamp?: number;
+}

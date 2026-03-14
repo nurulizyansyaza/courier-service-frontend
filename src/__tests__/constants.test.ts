@@ -4,6 +4,9 @@ import {
   WELCOME_LINES,
   FRAMEWORK_CONFIG,
   FALLBACK_SESSION_CONTEXT,
+  MOTORCYCLE_ART,
+  COURIER_ART,
+  FRAMEWORK_COLORS,
 } from '@/core/constants';
 
 describe('Constants', () => {
@@ -52,6 +55,32 @@ describe('Constants', () => {
       expect(FALLBACK_SESSION_CONTEXT.session.offers).toEqual([]);
       const result = FALLBACK_SESSION_CONTEXT.getOffersForCalculation();
       expect(result).toEqual({});
+    });
+  });
+
+  describe('MOTORCYCLE_ART', () => {
+    it('should be a non-empty string', () => {
+      expect(typeof MOTORCYCLE_ART).toBe('string');
+      expect(MOTORCYCLE_ART.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('COURIER_ART', () => {
+    it('should be a non-empty string containing "CLI Version"', () => {
+      expect(typeof COURIER_ART).toBe('string');
+      expect(COURIER_ART.length).toBeGreaterThan(0);
+      expect(COURIER_ART).toContain('CLI Version');
+    });
+  });
+
+  describe('FRAMEWORK_COLORS', () => {
+    it('should have react, vue, svelte keys with color strings', () => {
+      expect(FRAMEWORK_COLORS).toHaveProperty('react');
+      expect(FRAMEWORK_COLORS).toHaveProperty('vue');
+      expect(FRAMEWORK_COLORS).toHaveProperty('svelte');
+      expect(typeof FRAMEWORK_COLORS.react).toBe('string');
+      expect(typeof FRAMEWORK_COLORS.vue).toBe('string');
+      expect(typeof FRAMEWORK_COLORS.svelte).toBe('string');
     });
   });
 });

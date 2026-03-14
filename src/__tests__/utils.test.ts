@@ -1,4 +1,5 @@
-import { parseHelpSections } from '@/core/utils';
+import { parseHelpSections, formatOfferDist, getLastClearIndex } from '@/core/utils';
+import type { HistoryEntry } from '@/core/types';
 
 describe('parseHelpSections', () => {
   it('should parse sections with headers and content lines', () => {
@@ -87,5 +88,39 @@ describe('parseHelpSections', () => {
     expect(sections[0].title).toBe('First');
     expect(sections[1].title).toBe('Second');
     expect(sections[2].title).toBe('Third');
+  });
+});
+
+describe('formatOfferDist', () => {
+  it('returns "< maxDistance" when minDistance is 0', () => {
+    expect(formatOfferDist({ minDistance: 0, maxDistance: 200 })).toBe('< 200');
+  });
+
+  it('returns "min - max" when minDistance > 0', () => {
+    expect(formatOfferDist({ minDistance: 50, maxDistance: 150 })).toBe('50 - 150');
+  });
+});
+
+describe('getLastClearIndex', () => {
+  it('returns -1 for empty history', () => {
+    expect(getLastClearIndex([])).toBe(-1);
+  });
+
+  it('returns -1 when no clear entry exists', () => {
+    const history: HistoryEntry[] = [
+      { type: 'input', content: 'test' },
+      { type: 'output', content: 'result' },
+    ];
+    expect(getLastClearIndex(history)).toBe(-1);
+  });
+
+  it('returns index of last clear entry', () => {
+    const history: HistoryEntry[] = [
+      { type: 'clear', content: 'clear' },
+      { type: 'input', content: 'test' },
+      { type: 'clear', content: 'clear' },
+      { type: 'output', content: 'result' },
+    ];
+    expect(getLastClearIndex(history)).toBe(2);
   });
 });

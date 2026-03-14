@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TerminalApp } from '../app/components/TerminalApp';
+import { TerminalApp } from '../react/components/TerminalApp';
 
-vi.mock('../app/components/TerminalTab', () => ({
+vi.mock('../react/components/TerminalTab', () => ({
   TerminalTab: ({ tab }: any) => (
     <div data-testid={`terminal-tab-${tab.id}`} data-tab-title={tab.title} />
   ),

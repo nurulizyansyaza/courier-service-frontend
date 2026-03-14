@@ -1,21 +1,8 @@
 import { useState, useRef } from 'react';
 import { Plus, X } from 'lucide-react';
 import { TerminalTab } from './TerminalTab';
-import type { CalculationType, TransitPackage, TabData } from '../../core/types';
-
-const createEmptyTab = (id: string, title: string): TabData => ({
-  id,
-  title,
-  calculationType: 'cost',
-  input: '',
-  output: '',
-  error: '',
-  hasExecuted: false,
-  transitPackages: [],
-  executionTransitSnapshot: [],
-  renamedPackages: [],
-  isGenerating: false,
-});
+import type { TabData } from '../../core/types';
+import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
 
 export function TerminalApp() {
   const [tabs, setTabs] = useState<TabData[]>([
@@ -26,25 +13,21 @@ export function TerminalApp() {
 
   const addNewTab = () => {
     const newId = String(Date.now());
-    const newTab = createEmptyTab(newId, `courier_${nextTabNumber.current}`);
+    const result = addTab(tabs, newId, `courier_${nextTabNumber.current}`);
     nextTabNumber.current += 1;
-    setTabs([...tabs, newTab]);
-    setActiveTabId(newId);
+    setTabs(result.tabs);
+    setActiveTabId(result.activeTabId);
   };
 
   const closeTab = (id: string) => {
-    if (tabs.length === 1) return;
-    const newTabs = tabs.filter(tab => tab.id !== id);
-    setTabs(newTabs);
-    if (activeTabId === id) {
-      setActiveTabId(newTabs[newTabs.length - 1].id);
-    }
+    const result = closeTabLogic(tabs, id, activeTabId);
+    if (!result) return;
+    setTabs(result.tabs);
+    setActiveTabId(result.activeTabId);
   };
 
   const updateTab = (id: string, updates: Partial<TabData>) => {
-    setTabs(tabs.map(tab =>
-      tab.id === id ? { ...tab, ...updates } : tab
-    ));
+    setTabs(updateTabLogic(tabs, id, updates));
   };
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);

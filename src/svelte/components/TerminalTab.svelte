@@ -5,6 +5,7 @@
   import { formatOfferDist, getLastClearIndex } from '../../core/utils'
   import { processCommand } from '../../core/terminalCommands'
   import { runCalculation } from '../../core/calculationRunner'
+  import { switchFramework } from '../../core/frameworkSwitcher'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
 
@@ -15,7 +16,9 @@
   let clearMarkerRef: HTMLDivElement | null = $state(null)
   let currentInput = $state('')
   let history: HistoryEntry[] = $state([])
-  let framework: 'react' | 'vue' | 'svelte' = $state('react')
+  let framework: 'react' | 'vue' | 'svelte' = $state(
+    typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : 'react'
+  )
   let isGenerating = $state(false)
   let showWelcome = $state(true)
   let shouldAutoScroll = $state(true)
@@ -97,9 +100,13 @@
       case 'invalid-change':
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
         break
-      case 'change-framework':
-        framework = action.framework
+      case 'switch-framework':
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
+        switchFramework(action.framework).then(result => {
+          if (!result.success) {
+            history = [...history, { type: 'error' as const, content: `✗ Switch failed: ${result.message}`, timestamp: Date.now() }]
+          }
+        })
         break
       case 'change-mode':
         onupdate({ calculationType: action.mode })

@@ -28,6 +28,7 @@
   },
   "include": [
     "src/core",
-    "src/react"
+    "src/react",
+    "src/vite-env.d.ts"
   ]
 }

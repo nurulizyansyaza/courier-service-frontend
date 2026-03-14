@@ -37,30 +37,31 @@ describe('processCommand', () => {
   });
 
   describe('/change use <framework>', () => {
-    it('returns change-framework with react', () => {
+    it('returns switch-framework with react', () => {
       const result = processCommand('/change use react', true);
       expect(result).not.toBeNull();
-      expect(result!.type).toBe('change-framework');
-      if (result!.type === 'change-framework') {
+      expect(result!.type).toBe('switch-framework');
+      if (result!.type === 'switch-framework') {
         expect(result.framework).toBe('react');
         expect(result.historyEntries[0].content).toContain('React');
+        expect(result.historyEntries[0].content).toContain('Switching');
       }
     });
 
-    it('returns change-framework with vue', () => {
+    it('returns switch-framework with vue', () => {
       const result = processCommand('/change use vue', true);
       expect(result).not.toBeNull();
-      expect(result!.type).toBe('change-framework');
-      if (result!.type === 'change-framework') {
+      expect(result!.type).toBe('switch-framework');
+      if (result!.type === 'switch-framework') {
         expect(result.framework).toBe('vue');
       }
     });
 
-    it('returns change-framework with svelte', () => {
+    it('returns switch-framework with svelte', () => {
       const result = processCommand('/change use svelte', true);
       expect(result).not.toBeNull();
-      expect(result!.type).toBe('change-framework');
-      if (result!.type === 'change-framework') {
+      expect(result!.type).toBe('switch-framework');
+      if (result!.type === 'switch-framework') {
         expect(result.framework).toBe('svelte');
       }
     });

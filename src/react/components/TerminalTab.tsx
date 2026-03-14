@@ -17,6 +17,7 @@ import {
 } from "../../core/calculations";
 import { processCommand } from "../../core/terminalCommands";
 import { runCalculation } from "../../core/calculationRunner";
+import { switchFramework } from "../../core/frameworkSwitcher";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
 import { useSession } from "../sessionStore";
@@ -36,7 +37,9 @@ export function TerminalTab({
   const { session, getOffersForCalculation } = useSession();
   const [currentInput, setCurrentInput] = useState("");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [framework, setFramework] = useState<"react" | "vue" | "svelte">("react");
+  const [framework, setFramework] = useState<"react" | "vue" | "svelte">(
+    typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : "react"
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
@@ -85,9 +88,13 @@ export function TerminalTab({
       case 'invalid-change':
         action.historyEntries.forEach(e => addToHistory(e));
         break;
-      case 'change-framework':
-        setFramework(action.framework);
+      case 'switch-framework':
         action.historyEntries.forEach(e => addToHistory(e));
+        switchFramework(action.framework).then(result => {
+          if (!result.success) {
+            addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` });
+          }
+        });
         break;
       case 'change-mode':
         onUpdate({ calculationType: action.mode });

@@ -7,6 +7,7 @@ import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/consta
 import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
+import { switchFramework } from '../../core/frameworkSwitcher'
 import { useSession } from '../sessionStore'
 
 const props = defineProps<{ tab: TabData }>()
@@ -20,7 +21,9 @@ const clearMarkerRef = ref<HTMLDivElement | null>(null)
 
 const currentInput = ref('')
 const history = ref<HistoryEntry[]>([])
-const framework = ref<'react' | 'vue' | 'svelte'>('react')
+const framework = ref<'react' | 'vue' | 'svelte'>(
+  typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : 'react'
+)
 const isGenerating = ref(false)
 const showWelcome = ref(true)
 const shouldAutoScroll = ref(true)
@@ -74,9 +77,13 @@ function handleCommand(cmd: string): boolean {
     case 'invalid-change':
       action.historyEntries.forEach(e => addToHistory(e))
       break
-    case 'change-framework':
-      framework.value = action.framework
+    case 'switch-framework':
       action.historyEntries.forEach(e => addToHistory(e))
+      switchFramework(action.framework).then(result => {
+        if (!result.success) {
+          addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` })
+        }
+      })
       break
     case 'change-mode':
       emit('update', { calculationType: action.mode })

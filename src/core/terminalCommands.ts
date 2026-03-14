@@ -4,7 +4,7 @@ export type CommandAction =
   | { type: 'connect'; historyEntries: HistoryEntry[]; clearHistory: boolean; showWelcome: boolean }
   | { type: 'already-connected'; historyEntries: HistoryEntry[] }
   | { type: 'not-connected'; historyEntries: HistoryEntry[] }
-  | { type: 'change-framework'; framework: Framework; historyEntries: HistoryEntry[] }
+  | { type: 'switch-framework'; framework: Framework; historyEntries: HistoryEntry[] }
   | { type: 'change-mode'; mode: CalculationType; historyEntries: HistoryEntry[] }
   | { type: 'invalid-change'; historyEntries: HistoryEntry[] }
   | { type: 'clear'; historyEntries: HistoryEntry[] }
@@ -48,11 +48,11 @@ export function processCommand(cmd: string, isConnected: boolean): CommandAction
       const targetFramework = parts[1].toLowerCase();
       if (targetFramework === 'react' || targetFramework === 'vue' || targetFramework === 'svelte') {
         return {
-          type: 'change-framework',
+          type: 'switch-framework',
           framework: targetFramework as Framework,
           historyEntries: [{
             type: 'info',
-            content: `Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js`,
+            content: `Switching to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js...`,
           }],
         };
       } else {

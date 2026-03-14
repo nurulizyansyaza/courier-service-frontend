@@ -1,4 +1,9 @@
-import { useRef, useState, useCallback } from "react";
+import {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   Terminal,
   ChevronDown,
@@ -14,596 +19,519 @@ import {
   setOffers,
 } from "../utils/courierCalculations";
 import { useSession } from "../utils/sessionStore";
-import { CodeSnippetPanel } from "./CodeSnippetPanel";
 
 interface TerminalTabProps {
   tab: TabData;
   onUpdate: (updates: Partial<TabData>) => void;
 }
 
-interface CollapsibleSectionProps {
-  title: string;
-  icon: React.ReactNode;
-  titleColor: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-  borderClass?: string;
-  badge?: React.ReactNode;
-}
-
-function CollapsibleSection({
-  title,
-  icon,
-  titleColor,
-  children,
-  defaultOpen = true,
-  borderClass = "",
-  badge,
-}: CollapsibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  return (
-    <div
-      className={`flex flex-col ${borderClass} bg-[#0d0118] xl:min-h-0`}
-    >
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="px-4 py-2 bg-[#1a0b2e]/50 border-b border-[#2d1b4e] flex items-center gap-2 w-full xl:cursor-default"
-      >
-        <span className="xl:hidden text-zinc-500">
-          {isOpen ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
-          )}
-        </span>
-        {icon}
-        <span className={`text-sm ${titleColor} font-mono`}>
-          {title}
-        </span>
-        {badge}
-      </button>
-      <div
-        className={`${isOpen ? "flex-1 flex flex-col" : "hidden"} xl:!flex xl:flex-1 xl:flex-col overflow-hidden`}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// Generating overlay
-function GeneratingOverlay({ label }: { label: string }) {
-  return (
-    <div className="absolute inset-0 bg-[#0d0118]/80 backdrop-blur-sm flex items-center justify-center z-10">
-      <div className="flex items-center gap-2 text-sm font-mono">
-        <Loader2 className="w-4 h-4 text-pink-400 animate-spin" />
-        <span className="text-pink-400 animate-pulse">
-          {label}
-        </span>
-      </div>
-    </div>
-  );
+// History entry for the terminal
+interface HistoryEntry {
+  type:
+    | "input"
+    | "output"
+    | "result"
+    | "command"
+    | "error"
+    | "info"
+    | "clear"
+    | "welcome";
+  content: string;
+  parsedResults?: ParsedResult[];
+  calculationType?: "cost" | "time";
+  timestamp?: number;
 }
 
 export function TerminalTab({
   tab,
   onUpdate,
 }: TerminalTabProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const {
-    session,
-    getOffersForCalculation,
-  } = useSession();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const clearMarkerRef = useRef<HTMLDivElement>(null);
+  const { session, getOffersForCalculation } = useSession();
+  const [currentInput, setCurrentInput] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [framework, setFramework] = useState<"react" | "vue" | "svelte">("react");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Auto-scroll to bottom only when shouldAutoScroll is true
+  useEffect(() => {
+    if (scrollAreaRef.current && shouldAutoScroll) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [history, shouldAutoScroll]);
+
+  // Detect if user is scrolling manually
+  const handleScroll = () => {
+    if (scrollAreaRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setShouldAutoScroll(isAtBottom);
+    }
+  };
 
   // Sync session offers into calculation engine
   const syncOffers = useCallback(() => {
     setOffers(getOffersForCalculation());
   }, [getOffersForCalculation]);
 
-  const isTimeInputComplete = (inputText: string): boolean => {
-    const lines = inputText
-      .trim()
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l);
-    if (lines.length < 3) return false;
-    const headerParts = lines[0].split(/\s+/);
-    if (headerParts.length < 2) return false;
-    const declaredCount = Number(headerParts[1]);
-    if (isNaN(declaredCount) || declaredCount < 1) return false;
-    const expectedLines = 1 + declaredCount + 1;
-    if (lines.length < expectedLines) return false;
-    const vehicleLineIndex = 1 + declaredCount;
-    if (vehicleLineIndex >= lines.length) return false;
-    const vehicleParts = lines[vehicleLineIndex]
-      .split(/\s+/)
-      .filter((p: string) => p.trim());
-    if (vehicleParts.length !== 3) return false;
-    return vehicleParts.every((p: string) => !isNaN(Number(p)));
+  const addToHistory = (entry: HistoryEntry) => {
+    setHistory((prev) => [...prev, { ...entry, timestamp: Date.now() }]);
   };
 
-  const handleInputChange = (newValue: string) => {
-    // For time mode: if input is already complete, only allow 'clear' on the next line
-    if (
-      tab.calculationType === "time" &&
-      isTimeInputComplete(tab.input)
-    ) {
-      const newLines = newValue
-        .trim()
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l);
-      const oldLines = tab.input
-        .trim()
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l);
+  const handleCommand = (cmd: string) => {
+    const trimmed = cmd.trim();
+    const lower = trimmed.toLowerCase();
 
-      if (newLines.length > oldLines.length) {
-        const addedLine =
-          newLines[newLines.length - 1]?.toLowerCase();
-        if (addedLine && "clear".startsWith(addedLine)) {
-          onUpdate({ input: newValue });
-          return;
-        }
-        return;
+    // Handle /connect command
+    if (lower === "/connect") {
+      if (!isConnected) {
+        setIsConnected(true);
+        setHistory([]);
+        setShowWelcome(true);
+        addToHistory({ type: "info", content: "✓ Connected to Courier CLI" });
+        return true;
+      } else {
+        addToHistory({ type: "error", content: "✗ Already connected" });
+        return true;
       }
-
-      onUpdate({ input: newValue });
-      return;
     }
 
-    onUpdate({ input: newValue });
+    if (!isConnected) {
+      addToHistory({ type: "error", content: "✗ CLI not connected. Type /connect to reconnect." });
+      return true;
+    }
+
+    // Handle /change commands
+    if (lower.startsWith("/change ")) {
+      const parts = trimmed.substring(8).trim().split(" ");
+
+      if (parts[0] === "use" && parts[1]) {
+        const targetFramework = parts[1].toLowerCase();
+        if (targetFramework === "react" || targetFramework === "vue" || targetFramework === "svelte") {
+          setFramework(targetFramework as any);
+          addToHistory({ type: "info", content: `✓ Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js` });
+          return true;
+        } else {
+          addToHistory({ type: "error", content: `✗ Unknown framework "${parts[1]}". Available: react, vue, svelte` });
+          return true;
+        }
+      }
+
+      if (parts[0] === "mode" && parts[1]) {
+        const targetMode = parts[1].toLowerCase();
+        if (targetMode === "cost" || targetMode === "time") {
+          onUpdate({ calculationType: targetMode as any });
+          addToHistory({ type: "info", content: `✓ Mode switched to ${targetMode === "cost" ? "Delivery Cost" : "Delivery Time Estimation"}` });
+          return true;
+        } else {
+          addToHistory({ type: "error", content: `✗ Unknown mode "${parts[1]}". Available: cost, time` });
+          return true;
+        }
+      }
+
+      addToHistory({ type: "error", content: `✗ Invalid /change command. Try: /change use react | /change mode cost` });
+      return true;
+    }
+
+    // Handle clear command
+    if (lower === "clear") {
+      addToHistory({ type: "clear", content: cmd });
+      setTimeout(() => {
+        if (scrollAreaRef.current && clearMarkerRef.current) {
+          clearMarkerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 50);
+      return true;
+    }
+
+    // Handle restart command
+    if (lower === "/restart") {
+      addToHistory({ type: "welcome", content: "restart" });
+      return true;
+    }
+
+    // Handle exit command
+    if (lower === "exit") {
+      setIsConnected(false);
+      setHistory([]);
+      setShowWelcome(false);
+      onUpdate({ input: "", output: "", error: "", hasExecuted: false, executionTransitSnapshot: [], renamedPackages: [] });
+      return true;
+    }
+
+    return false;
   };
 
   const handleExecute = () => {
-    if (!tab.input.trim()) {
-      onUpdate({
-        output: "",
-        error: "Error: No input provided",
-        hasExecuted: true,
-      });
+    if (!currentInput.trim()) return;
+    const input = currentInput.trim();
+
+    if (handleCommand(input)) {
+      setCurrentInput("");
+      setTimeout(() => { if (inputRef.current) inputRef.current.style.height = 'auto'; }, 0);
       return;
     }
 
-    const trimmedInput = tab.input.trim();
-    const lines = trimmedInput
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l);
-    const lastLine = lines[lines.length - 1]?.toLowerCase();
-
-    if (lastLine === "clear") {
-      onUpdate({
-        input: "",
-        output: "",
-        error: "",
-        hasExecuted: false,
-        executionTransitSnapshot: [],
-        renamedPackages: [],
-      });
-      if (textareaRef.current) textareaRef.current.focus();
-      return;
-    }
-
-    // Delivery calculation — show generating state
+    addToHistory({ type: "input", content: input });
     setIsGenerating(true);
+    setShowWelcome(false);
+
     setTimeout(() => {
       try {
-        syncOffers(); // Sync dynamic offers before calculation
+        syncOffers();
         if (tab.calculationType === "cost") {
-          const result = calculateDeliveryCost(tab.input);
-          onUpdate({
-            output: result,
-            error: "",
-            hasExecuted: true,
-          });
+          const result = calculateDeliveryCost(input);
+          const parsedResults = parseOutput(result, "cost", input, []);
+          addToHistory({ type: "output", content: result });
+          addToHistory({ type: "result", content: "", parsedResults, calculationType: "cost" });
+          onUpdate({ output: result, error: "", hasExecuted: true });
         } else {
-          const transitResult =
-            calculateDeliveryTimeWithTransit(
-              tab.input,
-              tab.transitPackages,
-            );
-          const updatedTransit = [
-            ...transitResult.stillInTransit,
-            ...transitResult.newTransitPackages,
-          ];
+          const transitResult = calculateDeliveryTimeWithTransit(input, tab.transitPackages);
+          const updatedTransit = [...transitResult.stillInTransit, ...transitResult.newTransitPackages];
+          const parsedResults = parseOutput(transitResult.output, "time", input, tab.transitPackages);
+          addToHistory({ type: "output", content: transitResult.output });
+          addToHistory({ type: "result", content: "", parsedResults, calculationType: "time" });
           onUpdate({
-            output: transitResult.output,
-            error: "",
-            hasExecuted: true,
+            output: transitResult.output, error: "", hasExecuted: true,
             transitPackages: updatedTransit,
             executionTransitSnapshot: [...tab.transitPackages],
             renamedPackages: transitResult.renamedPackages,
           });
         }
       } catch (err) {
-        onUpdate({
-          output: "",
-          error:
-            err instanceof Error
-              ? err.message
-              : "Invalid input",
-          hasExecuted: true,
-        });
+        const errorMsg = err instanceof Error ? err.message : "Invalid input";
+        addToHistory({ type: "error", content: errorMsg });
+        onUpdate({ output: "", error: errorMsg, hasExecuted: true });
       }
       setIsGenerating(false);
+      setCurrentInput("");
+      setTimeout(() => { if (inputRef.current) inputRef.current.style.height = 'auto'; }, 0);
     }, 350);
   };
 
-  const handleCalcTypeChange = (type: "cost" | "time") => {
-    onUpdate({
-      calculationType: type,
-      output: "",
-      error: "",
-      hasExecuted: false,
-    });
-  };
-
-  // Parse results
-  const parsedResults = parseOutput(
-    tab.output,
-    tab.calculationType,
-    tab.input,
-    tab.executionTransitSnapshot,
-  );
-
   const transitCount = tab.transitPackages.length;
-  const gridCols = "xl:grid-cols-3";
+  const frameworkColors = {
+    react: "text-cyan-400",
+    vue: "text-emerald-400",
+    svelte: "text-orange-400",
+  };
+  const lastClearIndex = (() => { for (let i = history.length - 1; i >= 0; i--) { if (history[i].type === "clear") return i; } return -1; })();
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-      {/* Calculation Type Selector */}
-      <div className="px-4 py-3 sm:px-6 bg-[#1a0b2e] border-b border-[#2d1b4e] flex items-center gap-3 sm:gap-4 flex-wrap">
-        <span className="text-sm text-zinc-400">Mode:</span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleCalcTypeChange("cost")}
-            className={`px-3 py-1.5 sm:px-4 text-sm rounded transition-colors ${
-              tab.calculationType === "cost"
-                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                : "bg-[#251440] text-zinc-400 border border-[#2d1b4e] hover:text-pink-300"
-            }`}
-          >
-            Delivery Cost
-          </button>
-          <button
-            onClick={() => handleCalcTypeChange("time")}
-            className={`px-3 py-1.5 sm:px-4 text-sm rounded transition-colors ${
-              tab.calculationType === "time"
-                ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                : "bg-[#251440] text-zinc-400 border border-[#2d1b4e] hover:text-pink-300"
-            }`}
-          >
-            Delivery Time
-          </button>
-        </div>
-      </div>
-
-      {/* Responsive Layout */}
+    <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0d0118]">
+      {/* Main terminal area with scrollable history */}
       <div
-        className={`flex-1 flex flex-col xl:grid ${gridCols} overflow-auto xl:overflow-hidden scrollbar-pink`}
+        ref={scrollAreaRef}
+        className="flex-1 overflow-y-auto scrollbar-pink p-4 sm:p-6 font-mono text-sm"
+        onScroll={handleScroll}
       >
-        {/* Input Panel */}
-        <CollapsibleSection
-          title="input"
-          icon={<Terminal className="w-4 h-4 text-pink-400" />}
-          titleColor="text-pink-400"
-          defaultOpen={true}
-          borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
-        >
-          <div className="flex-1 overflow-auto p-4 font-mono text-sm scrollbar-pink">
-            {/* CLI Header */}
-            <div className="text-zinc-600 mb-4">
-              <div># Courier Service App Calculator</div>
-              <div>
-                # Mode:{" "}
-                {tab.calculationType === "cost"
-                  ? "Delivery Cost"
-                  : "Delivery Time Estimation"}
-              </div>
-              <div className="mt-2"># Input Format:</div>
-              <div>
-                # Line 1: base_delivery_cost no_of_packages
-              </div>
-              <div>
-                # Line 2: pkg_id1 weight1_in_kg distance1_in_km
-                offer_code1
-              </div>
-              {tab.calculationType === "time" && (
-                <div>
-                  # Last line: no_of_vehicles max_speed
-                  max_weight
-                </div>
-              )}
+        {/* Welcome screen */}
+        {showWelcome && (
+          <div className="mb-4 sm:mb-6">
+            <div className="text-xs sm:text-sm text-zinc-400 space-y-1 mb-3 sm:mb-4">
+              <div className="text-pink-400 font-semibold text-sm sm:text-base md:text-lg">Welcome to Courier CLI!</div>
+              <div className="text-zinc-500 text-xs sm:text-sm">Calculate delivery costs and optimize delivery times with real time package tracking</div>
+            </div>
 
-              {/* Dynamic Offer Table */}
-              <div className="text-zinc-700 mt-2">
-                ------------------------------------
+            <div className="mb-3 sm:mb-4">
+              <div className="flex flex-col">
+                <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
+{`
+                            ___
+                          /~   ~\\
+                         |_      |
+                         |/     __-__
+                          \\   /~     ~~-_
+                           ~~ -~~\\       ~\\
+                            /     |        \\
+               ,           /     /          \\
+             //   _ _---~~~    //-_          \\               
+           /  (/~~ )    _____/-__  ~-_       _-\\             _________
+         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
+        /_-~                       _-/'          )~/               /'
+        (___________/           _-~/'         _-~~/             _-~
+     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
+  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
+ /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
+;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
+|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
+|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
+ \\    ~-----~    /  /~                             )  \\    ~-----~    /
+  ~-_         _-~ /_______________________________/    \`-_         _-~
+     ~ ----- ~                                            ~ ----- ~`}
+                </pre>
+                <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
+{`
+ ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
+██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
+██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
+██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
+╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
+ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
+              CLI Version 1.0.0
+`}
+                </pre>
               </div>
-              <div className="text-zinc-500">
-                Code | Distance (km) | Weight (kg)
-              </div>
-              <div className="text-zinc-700">
-                ------------------------------------
-              </div>
+            </div>
+
+            <div className="flex gap-1 text-zinc-600 text-[9px] sm:text-[10px] mb-3 sm:mb-4">
+              <span className="text-emerald-400">●</span>
+              <span>Connected to Courier Service</span>
+            </div>
+
+            {/* Available Offers */}
+            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+              <div className="text-cyan-400/80 mb-1.5 sm:mb-2 text-xs sm:text-sm">Available Offer Codes:</div>
+              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
+              <div className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">Code | Distance (km) | Weight (kg)</div>
+              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
               {session.offers.map((o) => {
-                const dist =
-                  o.minDistance === 0
-                    ? `< ${o.maxDistance}`
-                    : `${o.minDistance} - ${o.maxDistance}`;
+                const dist = o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`;
                 return (
-                  <div
-                    key={o.code}
-                    className="text-zinc-500 whitespace-pre"
-                  >
-                    {`${o.code} | ${dist.padEnd(13)} | ${o.minWeight} - ${o.maxWeight}`}
+                  <div key={o.code} className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">
+                    {`${o.code.padEnd(8)}| ${dist.padEnd(13)} | ${o.minWeight} - ${o.maxWeight}`}
                   </div>
                 );
               })}
-              <div className="text-zinc-700">
-                ------------------------------------
-              </div>
-
-              <div className="mt-2">
-                <span className="hidden xl:inline">
-                  # Press Enter to execute | Shift+Enter for new
-                  line | Type 'clear' to reset
-                </span>
-                <span className="xl:hidden">
-                  # Tap Run to execute | Enter for new line |
-                  Type 'clear' to reset
-                </span>
-              </div>
-              <div className="border-t border-[#2d1b4e]/50 my-3"></div>
+              <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
             </div>
 
-            {/* Command Prompt with $ on each line */}
-            <div className="relative">
-              <div
-                className="absolute inset-0 pointer-events-none font-mono text-sm leading-relaxed"
-                style={{ paddingTop: "2px" }}
-              >
-                {tab.input === "" ? (
-                  <div className="flex gap-2">
-                    <span className="text-pink-400">$</span>
-                  </div>
-                ) : (
-                  tab.input.split("\n").map((_, i) => (
-                    <div key={i} className="flex gap-2">
-                      <span className="text-pink-400">$</span>
-                    </div>
-                  ))
+            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+
+            {/* Input format help */}
+            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+              <div className="text-pink-400/70 mb-1 text-xs sm:text-sm">Input Format:</div>
+              <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+                <div>Line 1: <span className="text-zinc-500">base_delivery_cost no_of_packages</span></div>
+                <div>Line 2+: <span className="text-zinc-500">pkg_id weight_kg distance_km offer_code</span></div>
+                {tab.calculationType === "time" && (
+                  <div>Last line: <span className="text-zinc-500">no_of_vehicles max_speed max_weight</span></div>
                 )}
               </div>
-              <textarea
-                ref={textareaRef}
-                value={tab.input}
-                onChange={(e) =>
-                  handleInputChange(e.target.value)
-                }
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    !e.shiftKey &&
-                    window.innerWidth >= 1280
-                  ) {
-                    const lines = tab.input
-                      .trim()
-                      .split("\n")
-                      .map((l) => l.trim())
-                      .filter((l) => l);
-                    const lastLine =
-                      lines[lines.length - 1]?.toLowerCase();
-                    const isClear = lastLine === "clear";
-
-                    if (
-                      tab.calculationType === "time" &&
-                      !isClear &&
-                      !isTimeInputComplete(tab.input)
-                    ) {
-                      return;
-                    }
-                    e.preventDefault();
-                    handleExecute();
-                  }
-                }}
-                placeholder="Type your input here..."
-                className="relative bg-transparent border-none outline-none resize-none text-zinc-100 placeholder:text-zinc-600 min-h-[150px] xl:min-h-[200px] w-full font-mono text-sm leading-relaxed"
-                style={{ paddingLeft: "1.5rem" }}
-                spellCheck={false}
-              />
             </div>
 
-            {/* Transit Section */}
-            {tab.calculationType === "time" &&
-              transitCount > 0 && (
-                <TransitSection
-                  transitPackages={tab.transitPackages}
-                  renamedPackages={tab.renamedPackages}
-                />
-              )}
+            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
 
-            {/* Footer: Run button only (mobile/tablet) */}
-            <div className="mt-4 pt-4 border-t border-[#2d1b4e]/50 flex items-center justify-end">
-              <button
-                onClick={handleExecute}
-                className="xl:hidden px-4 py-1.5 text-sm rounded bg-pink-500/20 text-pink-400 border border-pink-500/30 hover:bg-pink-500/30 transition-colors whitespace-nowrap"
-              >
-                Run
-              </button>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* Output Panel */}
-        <CollapsibleSection
-            title="output"
-            icon={
-              <Terminal className="w-4 h-4 text-violet-400" />
-            }
-            titleColor="text-violet-400"
-            defaultOpen={true}
-            borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
-          >
-            <div className="flex-1 overflow-auto p-4 font-mono text-sm relative scrollbar-pink">
-              {isGenerating && (
-                <GeneratingOverlay label="generating new output..." />
-              )}
-              {!tab.hasExecuted && !isGenerating ? (
-                <div className="text-zinc-600">
-                  ~ awaiting execution...
-                </div>
-              ) : tab.error ? (
-                <div className="text-red-400">
-                  <span className="text-red-500">Error:</span>{" "}
-                  {tab.error}
-                </div>
-              ) : tab.output ? (
-                <pre className="whitespace-pre-wrap text-emerald-400">
-                  {tab.output}
-                </pre>
-              ) : null}
-            </div>
-          </CollapsibleSection>
-
-        {/* Result Panel */}
-        <CollapsibleSection
-          title="result"
-          icon={<Terminal className="w-4 h-4 text-cyan-400" />}
-          titleColor="text-cyan-400"
-          defaultOpen={true}
-          borderClass=""
-        >
-          <div className="flex-1 overflow-auto p-4 relative scrollbar-pink">
-            {isGenerating && (
-              <GeneratingOverlay label="generating new result..." />
-            )}
-            {!tab.hasExecuted && !isGenerating ? (
-              <div className="font-mono text-sm text-zinc-600">
-                ~ awaiting execution...
+            {/* Commands help */}
+            <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+              <div className="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
+              <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+                <div><span className="text-emerald-400">/change use</span> <span className="text-zinc-500">react | vue | svelte</span> - Switch framework</div>
+                <div><span className="text-emerald-400">/change mode</span> <span className="text-zinc-500">cost | time</span> - Switch calculation mode</div>
+                <div><span className="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
+                <div><span className="text-cyan-400">/restart</span> - Show welcome screen again</div>
+                <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
+                <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
               </div>
-            ) : parsedResults.length > 0 ? (
-              <div className="space-y-4">
-                {[...parsedResults]
+            </div>
+
+            <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+          </div>
+        )}
+
+        {/* History entries */}
+        {history.map((entry, idx) => (
+          <div key={idx} className="mb-3">
+            {entry.type === "input" && (
+              <div className="flex gap-2">
+                <span className="text-pink-400 select-none">❯</span>
+                <div className="text-zinc-300 whitespace-pre-wrap break-all">{entry.content}</div>
+              </div>
+            )}
+
+            {entry.type === "output" && (
+              <div className="ml-4 text-emerald-400 whitespace-pre-wrap text-xs">{entry.content}</div>
+            )}
+
+            {entry.type === "result" && entry.parsedResults && (
+              <div className="ml-4 space-y-3 mt-2">
+                {entry.parsedResults
                   .sort((a, b) => {
-                    if (tab.calculationType !== "time")
-                      return 0;
-                    if (a.undeliverable && !b.undeliverable)
-                      return 1;
-                    if (!a.undeliverable && b.undeliverable)
-                      return -1;
+                    if (entry.calculationType !== "time") return 0;
+                    if (a.undeliverable && !b.undeliverable) return 1;
+                    if (!a.undeliverable && b.undeliverable) return -1;
                     const roundA = a.deliveryRound ?? Infinity;
                     const roundB = b.deliveryRound ?? Infinity;
-                    if (roundA !== roundB)
-                      return roundA - roundB;
+                    if (roundA !== roundB) return roundA - roundB;
                     return (b.weight ?? 0) - (a.weight ?? 0);
                   })
-                  .map((result, index) => (
-                    <ResultCard
-                      key={index}
-                      result={result}
-                      calculationType={tab.calculationType}
-                    />
+                  .map((result, i) => (
+                    <ResultCard key={i} result={result} calculationType={entry.calculationType!} />
                   ))}
               </div>
-            ) : tab.error ? (
-              <div className="font-mono text-sm text-red-400">
-                Failed to parse results
+            )}
+
+            {entry.type === "command" && (
+              <div className="text-cyan-400 text-xs">{entry.content}</div>
+            )}
+
+            {entry.type === "error" && (
+              <div className="ml-4 text-red-400 text-xs">{entry.content}</div>
+            )}
+
+            {entry.type === "info" && (
+              <div className="ml-4 text-cyan-400 text-xs">{entry.content}</div>
+            )}
+
+            {entry.type === "clear" && (
+              <div ref={idx === lastClearIndex ? clearMarkerRef : null}>
+                <div className="flex gap-2">
+                  <span className="text-pink-400 select-none">❯</span>
+                  <div className="text-zinc-300 whitespace-pre-wrap break-all">{entry.content}</div>
+                </div>
+                {idx === lastClearIndex && idx >= history.length - 1 && (
+                  <div style={{ height: 'calc(100vh - 260px)' }}></div>
+                )}
               </div>
-            ) : null}
+            )}
+
+            {entry.type === "welcome" && (
+              <WelcomeScreen tab={tab} session={session} />
+            )}
           </div>
-        </CollapsibleSection>
+        ))}
+
+        {/* Generating indicator */}
+        {isGenerating && (
+          <div className="flex items-center gap-2 text-pink-400 text-xs">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="animate-pulse">Calculating...</span>
+          </div>
+        )}
+
+        {/* Disconnected state */}
+        {!isConnected && (
+          <div>
+            <div className="mb-3 sm:mb-4">
+              <div className="flex flex-col justify-center">
+                <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
+{`
+                            ___
+                          /~   ~\\
+                         |_      |
+                         |/     __-__
+                          \\   /~     ~~-_
+                           ~~ -~~\\       ~\\
+                            /     |        \\
+               ,           /     /          \\
+             //   _ _---~~~    //-_          \\               
+           /  (/~~ )    _____/-__  ~-_       _-\\             _________
+         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
+        /_-~                       _-/'          )~/               /'
+        (___________/           _-~/'         _-~~/             _-~
+     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
+  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
+ /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
+;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
+|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
+|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
+ \\    ~-----~    /  /~                             )  \\    ~-----~    /
+  ~-_         _-~ /_______________________________/    \`-_         _-~
+     ~ ----- ~                                            ~ ----- ~`}
+                </pre>
+                <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
+{`
+ ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
+██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
+██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
+██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
+╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
+ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
+              CLI Version 1.0.0
+`}
+                </pre>
+              </div>
+            </div>
+
+            <div className="flex gap-1 items-center text-zinc-600 text-[9px] sm:text-[10px] mb-3 sm:mb-4">
+              <span className="text-red-400">●</span>
+              <span>Disconnected from Courier Service</span>
+            </div>
+
+            <div className="text-zinc-400 text-sm mb-2 mt-8">Terminal Disconnected</div>
+            <div className="text-zinc-600 text-xs mb-4">The CLI connection has been closed</div>
+            <div className="text-pink-400/70 text-xs font-mono">
+              Type <span className="text-cyan-400">/connect</span> to reconnect
+            </div>
+          </div>
+        )}
+
+        {/* Transit packages indicator */}
+        {transitCount > 0 && (
+          <div className="mt-4 mb-2">
+            <div className="flex items-center gap-2 text-amber-400 text-xs mb-2">
+              <Package className="w-3.5 h-3.5" />
+              <span>Packages in transit: {transitCount}</span>
+            </div>
+            <div className="ml-6 space-y-1">
+              {tab.transitPackages.map((tp, index) => (
+                <div key={`${tp.id}-${index}`} className="text-xs text-zinc-500 font-mono">
+                  {tp.id} - {tp.weight}kg, {tp.distance}km, {tp.offerCode}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Code Snippet Panel — per-tab, independent framework selection */}
-      <CodeSnippetPanel />
-    </div>
-  );
-}
-// ── Transit Section Component ──────────────────────────────────────────
+      {/* Input area - fixed at bottom */}
+      <div className="shrink-0 border-t border-[#2d1b4e] bg-[#0d0118] p-3 sm:p-4">
+        {/* Status bar */}
+        {isConnected && (
+          <div className="flex items-center gap-4 text-[10px] text-zinc-600 mb-2 flex-wrap">
+            <span>Mode: <span className="text-pink-400">{tab.calculationType === "cost" ? "Cost" : "Time"}</span></span>
+            <span>Framework: <span className={frameworkColors[framework]}>{framework}</span></span>
+            {transitCount > 0 && (
+              <span>Transit: <span className="text-amber-400">{transitCount}</span></span>
+            )}
+          </div>
+        )}
 
-function TransitSection({
-  transitPackages,
-  renamedPackages,
-}: {
-  transitPackages: TransitPackage[];
-  renamedPackages: { oldId: string; newId: string }[];
-}) {
-  const [isOpen, setIsOpen] = useState(false);
+        {/* Disconnected status bar */}
+        {!isConnected && (
+          <div className="flex items-center gap-2 text-[10px] text-zinc-600 mb-2">
+            <span className="text-red-400">●</span>
+            <span className="text-zinc-500">CLI not connected</span>
+          </div>
+        )}
 
-  const renameNewToOld = new Map(
-    renamedPackages.map((rp) => [
-      rp.newId.toLowerCase(),
-      rp.oldId,
-    ]),
-  );
+        {/* Input line */}
+        <div className="flex gap-2">
+          <span className="text-pink-400 select-none">❯</span>
+          <textarea
+            ref={inputRef}
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleExecute();
+              }
+            }}
+            placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}
+            className="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto leading-tight pt-1"
+            spellCheck={false}
+            autoFocus
+            rows={1}
+            style={{ height: 'auto', minHeight: '1.5rem' }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+            }}
+          />
+        </div>
 
-  return (
-    <div className="mt-4 border border-amber-500/30 rounded-lg overflow-hidden bg-amber-500/5">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-xs font-mono hover:bg-amber-500/10 transition-colors"
-      >
-        <span className="xl:hidden text-amber-500/60">
-          {isOpen ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-        </span>
-        <Package className="w-3.5 h-3.5 text-amber-400" />
-        <span className="text-amber-400">
-          {">_"} package in transit
-        </span>
-        <span className="text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px]">
-          {transitPackages.length}
-        </span>
-      </button>
-      <div
-        className={`${isOpen ? "block" : "hidden"} xl:!block`}
-      >
-        <div className="px-3 pb-2 space-y-1.5">
-          {transitPackages.map((tp, index) => {
-            const originalId = renameNewToOld.get(
-              tp.id.toLowerCase(),
-            );
-            return (
-              <div
-                key={`${tp.id}-${index}`}
-                className="flex items-center gap-3 px-2 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded text-xs font-mono"
-              >
-                {originalId ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-zinc-600 line-through">
-                      {originalId}
-                    </span>
-                    <span className="text-amber-300">
-                      {tp.id}
-                    </span>
-                    <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30">
-                      ID Notified
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-amber-300">
-                    {tp.id}
-                  </span>
-                )}
-                <span className="text-zinc-500">
-                  {tp.weight}kg
-                </span>
-                <span className="text-zinc-500">
-                  {tp.distance}km
-                </span>
-                <span className="text-zinc-600">
-                  {tp.offerCode}
-                </span>
-              </div>
-            );
-          })}
+        {/* Hints */}
+        <div className="mt-2 text-[10px] text-zinc-700">
+          {isConnected
+            ? "Press Enter to execute • Shift+Enter for new line • Type /change, clear, or exit"
+            : "Type /connect and press Enter to reconnect"}
         </div>
       </div>
     </div>
@@ -621,19 +549,10 @@ function ResultCard({
 }) {
   const discount = parseFloat(result.discount);
   const deliveryCost = result.deliveryCost;
-  const discountPercent =
-    discount > 0
-      ? ((discount / deliveryCost) * 100).toFixed(0)
-      : 0;
+  const discountPercent = discount > 0 ? ((discount / deliveryCost) * 100).toFixed(0) : 0;
 
   return (
-    <div
-      className={`bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3 ${
-        result.undeliverable
-          ? "border-amber-500/40"
-          : "border-[#2d1b4e]"
-      }`}
-    >
+    <div className={`bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3 ${result.undeliverable ? "border-amber-500/40" : "border-[#2d1b4e]"}`}>
       {/* In Transit badge + Undeliverable banner */}
       {result.undeliverable && result.undeliverableReason && (
         <div className="space-y-2">
@@ -644,123 +563,52 @@ function ResultCard({
             </span>
           </div>
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 text-xs font-mono text-amber-400">
-            <span className="text-amber-500">&#x26A0;</span>{" "}
-            {result.undeliverableReason}
+            <span className="text-amber-500">&#x26A0;</span> {result.undeliverableReason}
           </div>
         </div>
       )}
 
-      {/* Delivery Round & Vehicle (time mode only, deliverable packages) */}
-      {!result.undeliverable &&
-        result.deliveryRound !== undefined &&
-        result.vehicleId !== undefined && (
-          <div className="space-y-1.5 pb-2 border-b border-[#2d1b4e]/50">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
-              <span className="text-zinc-500">
-                Packages Remaining:{" "}
-                <span className="text-zinc-300">
-                  {result.packagesRemaining ?? 0}
-                </span>
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
-              <span className="text-purple-400/80">
-                Delivery Round:{" "}
-                <span className="text-purple-300">
-                  {result.deliveryRound}
-                </span>
-              </span>
-              <span className="text-zinc-600">|</span>
-              <span className="text-cyan-400/80">
-                Vehicle Available:{" "}
-                <span className="text-cyan-300">
-                  Vehicle{result.vehicleId}
-                </span>
-              </span>
-              <span className="text-zinc-600">|</span>
-              <span className="text-zinc-500">
-                Current Time:{" "}
-                <span className="text-zinc-300">
-                  {(result.currentTime ?? 0).toFixed(2)} hrs
-                </span>
-              </span>
-            </div>
-            <div className="text-xs font-mono text-amber-400/80 mt-1">
-              {result.currentTime !== undefined &&
-              result.currentTime > 0 ? (
-                <>
-                  Vehicle{result.vehicleId} will be available
-                  after {result.currentTime.toFixed(2)} +{" "}
-                  {(result.roundTripTime ?? 0).toFixed(2)} ={" "}
-                  <span className="text-amber-300">
-                    {(result.vehicleReturnTime ?? 0).toFixed(2)}{" "}
-                    hrs
-                  </span>
-                </>
-              ) : (
-                <>
-                  Vehicle{result.vehicleId} will be available
-                  after{" "}
-                  <span className="text-amber-300">
-                    {(result.vehicleReturnTime ?? 0).toFixed(2)}{" "}
-                    hrs
-                  </span>
-                </>
-              )}
-            </div>
+      {/* Delivery Round & Vehicle (time mode only) */}
+      {!result.undeliverable && result.deliveryRound !== undefined && result.vehicleId !== undefined && (
+        <div className="space-y-1.5 pb-2 border-b border-[#2d1b4e]/50">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+            <span className="text-zinc-500">Packages Remaining: <span className="text-zinc-300">{result.packagesRemaining ?? 0}</span></span>
           </div>
-        )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+            <span className="text-purple-400/80">Delivery Round: <span className="text-purple-300">{result.deliveryRound}</span></span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-cyan-400/80">Vehicle Available: <span className="text-cyan-300">Vehicle{result.vehicleId}</span></span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-zinc-500">Current Time: <span className="text-zinc-300">{(result.currentTime ?? 0).toFixed(2)} hrs</span></span>
+          </div>
+          <div className="text-xs font-mono text-amber-400/80 mt-1">
+            {result.currentTime !== undefined && result.currentTime > 0 ? (
+              <>Vehicle{result.vehicleId} will be available after {result.currentTime.toFixed(2)} + {(result.roundTripTime ?? 0).toFixed(2)} = <span className="text-amber-300">{(result.vehicleReturnTime ?? 0).toFixed(2)} hrs</span></>
+            ) : (
+              <>Vehicle{result.vehicleId} will be available after <span className="text-amber-300">{(result.vehicleReturnTime ?? 0).toFixed(2)} hrs</span></>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Title — package ID */}
       <div className="flex items-center gap-2 pb-2 border-b border-[#2d1b4e]/50">
         {result.renamedFrom ? (
           <>
-            <span className="text-zinc-500 font-mono line-through">
-              {result.renamedFrom}
-            </span>
-            <span className="text-pink-400 font-mono font-semibold">
-              {result.id}
-            </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/20 text-violet-400 border border-violet-500/30">
-              Notified
-            </span>
+            <span className="text-zinc-500 font-mono line-through">{result.renamedFrom}</span>
+            <span className="text-pink-400 font-mono font-semibold">{result.id}</span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/20 text-violet-400 border border-violet-500/30">Notified</span>
           </>
         ) : (
-          <span className="text-pink-400 font-mono font-semibold">
-            {result.id}
-          </span>
+          <span className="text-pink-400 font-mono font-semibold">{result.id}</span>
         )}
       </div>
 
       {/* Header */}
       <div className="text-sm text-zinc-300 space-y-1">
-        <div>
-          <span className="text-zinc-500">
-            Base delivery cost:
-          </span>{" "}
-          <span className="font-semibold">
-            {result.baseCost}
-          </span>
-        </div>
-        <div>
-          <span className="text-zinc-500">Weight:</span>{" "}
-          <span className="font-semibold">
-            {result.weight}kg
-          </span>
-          {" | "}
-          <span className="text-zinc-500">Distance:</span>{" "}
-          <span className="font-semibold">
-            {result.distance}km
-          </span>
-        </div>
-        <div>
-          <span className="text-zinc-500">Offer code:</span>{" "}
-          <span
-            className={`font-semibold ${result.offerApplied ? "text-emerald-400" : "text-zinc-600"}`}
-          >
-            {result.offerApplied || "N/A"}
-          </span>
-        </div>
+        <div><span className="text-zinc-500">Base delivery cost:</span> <span className="font-semibold">{result.baseCost}</span></div>
+        <div><span className="text-zinc-500">Weight:</span> <span className="font-semibold">{result.weight}kg</span>{" | "}<span className="text-zinc-500">Distance:</span> <span className="font-semibold">{result.distance}km</span></div>
+        <div><span className="text-zinc-500">Offer code:</span> <span className={`font-semibold ${result.offerApplied ? "text-emerald-400" : "text-zinc-600"}`}>{result.offerApplied || "N/A"}</span></div>
       </div>
 
       <div className="border-t border-[#2d1b4e]/50 pt-3 space-y-3">
@@ -768,14 +616,9 @@ function ResultCard({
         <div className="flex justify-between items-start text-sm">
           <div>
             <div className="text-zinc-400">Delivery Cost</div>
-            <div className="text-xs text-zinc-600 font-mono mt-0.5">
-              {result.baseCost} + ({result.weight} * 10) + (
-              {result.distance} * 5)
-            </div>
+            <div className="text-xs text-zinc-600 font-mono mt-0.5">{result.baseCost} + ({result.weight} * 10) + ({result.distance} * 5)</div>
           </div>
-          <div className="text-zinc-300 font-semibold font-mono">
-            {deliveryCost.toFixed(2)}
-          </div>
+          <div className="text-zinc-300 font-semibold font-mono">{deliveryCost.toFixed(2)}</div>
         </div>
 
         <div className="border-t border-[#2d1b4e]/30"></div>
@@ -785,16 +628,11 @@ function ResultCard({
           <div>
             <div className="text-zinc-400">Discount</div>
             <div className="text-xs text-zinc-600 mt-0.5">
-              {discount > 0
-                ? `(${discountPercent}% of ${deliveryCost.toFixed(2)} i.e; Delivery Cost)`
-                : "(Offer not applicable as criteria not met)"}
+              {discount > 0 ? `(${discountPercent}% of ${deliveryCost.toFixed(2)} i.e; Delivery Cost)` : "(Offer not applicable as criteria not met)"}
             </div>
           </div>
-          <div
-            className={`font-semibold font-mono ${discount > 0 ? "text-emerald-400" : "text-zinc-600"}`}
-          >
-            {discount > 0 ? "-" : ""}
-            {discount.toFixed(2)}
+          <div className={`font-semibold font-mono ${discount > 0 ? "text-emerald-400" : "text-zinc-600"}`}>
+            {discount > 0 ? "-" : ""}{discount.toFixed(2)}
           </div>
         </div>
 
@@ -802,31 +640,127 @@ function ResultCard({
 
         {/* Total Cost */}
         <div className="flex justify-between items-center">
-          <div className="text-zinc-300 font-semibold">
-            Total cost
-          </div>
-          <div className="text-pink-400 font-bold text-lg font-mono">
-            {result.totalCost}
-          </div>
+          <div className="text-zinc-300 font-semibold">Total cost</div>
+          <div className="text-pink-400 font-bold text-lg font-mono">{result.totalCost}</div>
         </div>
 
-        {/* Delivery Time (if available) */}
+        {/* Delivery Time */}
         {result.deliveryTime !== undefined && (
           <>
             <div className="border-t border-[#2d1b4e]/30"></div>
             <div className="flex justify-between items-center text-sm">
               <div className="text-zinc-400">Delivery Time</div>
-              <div
-                className={`font-semibold font-mono ${result.undeliverable ? "text-amber-400" : "text-cyan-400"}`}
-              >
-                {result.undeliverable
-                  ? "N/A"
-                  : `${result.deliveryTime}hrs`}
+              <div className={`font-semibold font-mono ${result.undeliverable ? "text-amber-400" : "text-cyan-400"}`}>
+                {result.undeliverable ? "N/A" : `${result.deliveryTime}hrs`}
               </div>
             </div>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Welcome Screen Component ─────────────────────────────────────────────
+
+function WelcomeScreen({ tab, session }: { tab: TabData; session: any }) {
+  return (
+    <div className="mb-4 sm:mb-6">
+      <div className="text-xs sm:text-sm text-zinc-400 space-y-1 mb-3 sm:mb-4">
+        <div className="text-pink-400 font-semibold text-sm sm:text-base md:text-lg">Welcome to Courier CLI!</div>
+        <div className="text-zinc-500 text-xs sm:text-sm">Calculate delivery costs and optimize delivery times with real time package tracking</div>
+      </div>
+
+      <div className="mb-3 sm:mb-4">
+        <div className="flex flex-col">
+          <pre className="text-pink-300/80 text-[6px] sm:text-xs md:text-sm select-none leading-tight overflow-x-auto">
+{`
+                            ___
+                          /~   ~\\
+                         |_      |
+                         |/     __-__
+                          \\   /~     ~~-_
+                           ~~ -~~\\       ~\\
+                            /     |        \\
+               ,           /     /          \\
+             //   _ _---~~~    //-_          \\               
+           /  (/~~ )    _____/-__  ~-_       _-\\             _________
+         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
+        /_-~                       _-/'          )~/               /'
+        (___________/           _-~/'         _-~~/             _-~
+     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
+  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
+ /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
+;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
+|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
+|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
+ \\    ~-----~    /  /~                             )  \\    ~-----~    /
+  ~-_         _-~ /_______________________________/    \`-_         _-~
+     ~ ----- ~                                            ~ ----- ~`}
+          </pre>
+          <pre className="text-pink-300/80 text-[8px] sm:text-[10px] md:text-lg xl:text-xl select-none leading-tight overflow-x-auto">
+{`
+ ██████╗ ██████╗ ██╗   ██╗██████╗ ██╗███████╗██████╗ 
+██╔════╝██╔═══██╗██║   ██║██╔══██╗██║██╔════╝██╔══██╗
+██║     ██║   ██║██║   ██║██████╔╝██║█████╗  ██████╔╝
+██║     ██║   ██║██║   ██║██╔══██╗██║██╔══╝  ██╔══██╗
+╚██████╗╚██████╔╝╚██████╔╝██║  ██║██║███████╗██║  ██║
+ ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
+              CLI Version 1.0.0
+`}
+          </pre>
+        </div>
+      </div>
+
+      <div className="flex gap-1 text-zinc-600 text-[9px] sm:text-[10px] mb-3 sm:mb-4">
+        <span className="text-emerald-400">●</span>
+        <span>Connected to Courier Service</span>
+      </div>
+
+      <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+        <div className="text-cyan-400/80 mb-1.5 sm:mb-2 text-xs sm:text-sm">Available Offer Codes:</div>
+        <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
+        <div className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">Code | Distance (km) | Weight (kg)</div>
+        <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
+        {session.offers.map((o: any) => {
+          const dist = o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`;
+          return (
+            <div key={o.code} className="text-zinc-500 font-mono text-[9px] sm:text-[10px] md:text-xs">
+              {`${o.code.padEnd(8)}| ${dist.padEnd(13)} | ${o.minWeight} - ${o.maxWeight}`}
+            </div>
+          );
+        })}
+        <div className="text-zinc-700 text-[9px] sm:text-[10px]">─────────────────────────────────────────</div>
+      </div>
+
+      <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+
+      <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+        <div className="text-pink-400/70 mb-1 text-xs sm:text-sm">Input Format:</div>
+        <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+          <div>Line 1: <span className="text-zinc-500">base_delivery_cost no_of_packages</span></div>
+          <div>Line 2+: <span className="text-zinc-500">pkg_id weight_kg distance_km offer_code</span></div>
+          {tab.calculationType === "time" && (
+            <div>Last line: <span className="text-zinc-500">no_of_vehicles max_speed max_weight</span></div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+
+      <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+        <div className="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
+        <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+          <div><span className="text-emerald-400">/change use</span> <span className="text-zinc-500">react | vue | svelte</span> - Switch framework</div>
+          <div><span className="text-emerald-400">/change mode</span> <span className="text-zinc-500">cost | time</span> - Switch calculation mode</div>
+          <div><span className="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
+          <div><span className="text-cyan-400">/restart</span> - Show welcome screen again</div>
+          <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
+          <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
     </div>
   );
 }

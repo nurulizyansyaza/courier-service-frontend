@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { Terminal } from 'lucide-svelte'
-  import type { TabData } from '../../core/types'
+  import type { TabData, TransitPackage, ParsedResult } from '../../core/types'
   import {
     calculateDeliveryCost,
     calculateDeliveryTimeWithTransit,
@@ -8,16 +7,28 @@
     setOffers,
   } from '../../core/calculations'
   import { useSession } from '../sessionStore.svelte'
-  import CollapsibleSection from './CollapsibleSection.svelte'
-  import GeneratingOverlay from './GeneratingOverlay.svelte'
-  import TransitSection from './TransitSection.svelte'
-  import ResultCard from './ResultCard.svelte'
-  import CodeSnippetPanel from './CodeSnippetPanel.svelte'
+  import { Package, Loader2 } from 'lucide-svelte'
+
+  interface HistoryEntry {
+    type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome'
+    content: string
+    parsedResults?: ParsedResult[]
+    calculationType?: 'cost' | 'time'
+    timestamp?: number
+  }
 
   let { tab, onupdate }: { tab: TabData; onupdate: (updates: Partial<TabData>) => void } = $props()
 
-  let textareaRef: HTMLTextAreaElement | null = $state(null)
+  let inputRef: HTMLTextAreaElement | null = $state(null)
+  let scrollAreaRef: HTMLDivElement | null = $state(null)
+  let clearMarkerRef: HTMLDivElement | null = $state(null)
+  let currentInput = $state('')
+  let history: HistoryEntry[] = $state([])
+  let framework: 'react' | 'vue' | 'svelte' = $state('react')
   let isGenerating = $state(false)
+  let showWelcome = $state(true)
+  let shouldAutoScroll = $state(true)
+  let isConnected = $state(true)
 
   const { session, getOffersForCalculation } = useSession()
 
@@ -25,93 +36,242 @@
     setOffers(getOffersForCalculation())
   }
 
-  function isTimeInputComplete(inputText: string): boolean {
-    const lines = inputText.trim().split('\n').map(l => l.trim()).filter(l => l)
-    if (lines.length < 3) return false
-    const headerParts = lines[0].split(/\s+/)
-    if (headerParts.length < 2) return false
-    const declaredCount = Number(headerParts[1])
-    if (isNaN(declaredCount) || declaredCount < 1) return false
-    const expectedLines = 1 + declaredCount + 1
-    if (lines.length < expectedLines) return false
-    const vehicleLineIndex = 1 + declaredCount
-    if (vehicleLineIndex >= lines.length) return false
-    const vehicleParts = lines[vehicleLineIndex].split(/\s+/).filter((p: string) => p.trim())
-    if (vehicleParts.length !== 3) return false
-    return vehicleParts.every((p: string) => !isNaN(Number(p)))
+  const transitCount = $derived(tab.transitPackages.length)
+  const frameworkColors: Record<string, string> = {
+    react: 'text-cyan-400',
+    vue: 'text-emerald-400',
+    svelte: 'text-orange-400',
+  }
+  const lastClearIndex = $derived((() => { for (let i = history.length - 1; i >= 0; i--) { if (history[i].type === 'clear') return i; } return -1; })())
+
+  $effect(() => {
+    if (scrollAreaRef && shouldAutoScroll) {
+      history
+      scrollAreaRef.scrollTop = scrollAreaRef.scrollHeight
+    }
+  })
+
+  const MOTORCYCLE_ART = `                            ___
+                          /~   ~\\
+                         |_      |
+                         |/     __-__
+                          \\   /~     ~~-_
+                           ~~ -~~\\       ~\\
+                            /     |        \\
+               ,           /     /          \\
+             //   _ _---~~~    //-_          \\
+           /  (/~~ )    _____/-__  ~-_       _-\\             _________
+         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
+        /_-~                       _-/'          )~/               /'
+        (___________/           _-~/'         _-~~/             _-~
+     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
+  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
+ /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
+;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
+|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
+|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
+ \\    ~-----~    /  /~                             )  \\    ~-----~    /
+  ~-_         _-~ /_______________________________/    \`-_         _-~
+     ~ ----- ~                                            ~ ----- ~`
+
+  const COURIER_ART = ` \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 
+\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
+\u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D
+\u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u255D  \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
+\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551
+ \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D
+              CLI Version 1.0.0`
+
+  function formatOfferDist(o: { minDistance: number; maxDistance: number }) {
+    return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`
   }
 
-  function handleInputChange(newValue: string) {
-    if (
-      tab.calculationType === 'time' &&
-      isTimeInputComplete(tab.input)
-    ) {
-      const newLines = newValue.trim().split('\n').map(l => l.trim()).filter(l => l)
-      const oldLines = tab.input.trim().split('\n').map(l => l.trim()).filter(l => l)
+  function handleScroll() {
+    if (scrollAreaRef) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
+      shouldAutoScroll = isAtBottom
+    }
+  }
 
-      if (newLines.length > oldLines.length) {
-        const addedLine = newLines[newLines.length - 1]?.toLowerCase()
-        if (addedLine && 'clear'.startsWith(addedLine)) {
-          onupdate({ input: newValue })
-          return
-        }
-        return
+  function handleTextareaInput(e: Event) {
+    const target = e.target as HTMLTextAreaElement
+    currentInput = target.value
+    target.style.height = 'auto'
+    target.style.height = Math.min(target.scrollHeight, 160) + 'px'
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      processInput()
+    }
+  }
+
+  function processInput() {
+    const trimmed = currentInput.trim()
+    if (!trimmed) return
+
+    if (!isConnected) {
+      if (trimmed === '/connect') {
+        handleCommand(trimmed)
+      } else {
+        history = [
+          ...history,
+          { type: 'error', content: 'Not connected. Type /connect to reconnect.', timestamp: Date.now() },
+        ]
       }
-
-      onupdate({ input: newValue })
+      currentInput = ''
+      resetTextareaHeight()
       return
     }
 
-    onupdate({ input: newValue })
+    if (trimmed.startsWith('/') || trimmed === 'clear' || trimmed === 'exit') {
+      handleCommand(trimmed)
+    } else {
+      executeCalculation(trimmed)
+    }
+
+    currentInput = ''
+    resetTextareaHeight()
   }
 
-  function handleExecute() {
-    if (!tab.input.trim()) {
-      onupdate({
-        output: '',
-        error: 'Error: No input provided',
-        hasExecuted: true,
-      })
+  function resetTextareaHeight() {
+    if (inputRef) {
+      inputRef.style.height = 'auto'
+    }
+  }
+
+  function handleCommand(cmd: string) {
+    const lower = cmd.toLowerCase().trim()
+
+    if (lower === '/connect') {
+      if (isConnected) {
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'info', content: 'Already connected.', timestamp: Date.now() },
+        ]
+      } else {
+        isConnected = true
+        showWelcome = true
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'info', content: 'Reconnected to courier-service-cli.', timestamp: Date.now() },
+        ]
+      }
       return
     }
 
-    const trimmedInput = tab.input.trim()
-    const lines = trimmedInput.split('\n').map(l => l.trim()).filter(l => l)
-    const lastLine = lines[lines.length - 1]?.toLowerCase()
-
-    if (lastLine === 'clear') {
-      onupdate({
-        input: '',
-        output: '',
-        error: '',
-        hasExecuted: false,
-        executionTransitSnapshot: [],
-        renamedPackages: [],
-      })
-      if (textareaRef) textareaRef.focus()
+    if (!isConnected) {
+      history = [
+        ...history,
+        { type: 'error', content: 'Not connected. Type /connect to reconnect.', timestamp: Date.now() },
+      ]
       return
     }
+
+    if (lower.startsWith('/change use ')) {
+      const fw = lower.replace('/change use ', '').trim() as 'react' | 'vue' | 'svelte'
+      if (['react', 'vue', 'svelte'].includes(fw)) {
+        framework = fw
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'info', content: `Framework switched to ${fw}.`, timestamp: Date.now() },
+        ]
+      } else {
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'error', content: `Unknown framework "${fw}". Use react, vue, or svelte.`, timestamp: Date.now() },
+        ]
+      }
+      return
+    }
+
+    if (lower.startsWith('/change mode ')) {
+      const mode = lower.replace('/change mode ', '').trim() as 'cost' | 'time'
+      if (['cost', 'time'].includes(mode)) {
+        onupdate({
+          calculationType: mode,
+          output: '',
+          error: '',
+          hasExecuted: false,
+        })
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'info', content: `Mode switched to ${mode === 'cost' ? 'Delivery Cost' : 'Delivery Time'}.`, timestamp: Date.now() },
+        ]
+      } else {
+        history = [
+          ...history,
+          { type: 'command', content: cmd, timestamp: Date.now() },
+          { type: 'error', content: `Unknown mode "${mode}". Use cost or time.`, timestamp: Date.now() },
+        ]
+      }
+      return
+    }
+
+    if (lower === 'clear') {
+      history = [...history, { type: 'clear', content: '', timestamp: Date.now() }]
+      showWelcome = false
+      return
+    }
+
+    if (lower === '/restart') {
+      history = [
+        ...history,
+        { type: 'command', content: cmd, timestamp: Date.now() },
+        { type: 'welcome', content: '', timestamp: Date.now() },
+      ]
+      showWelcome = false
+      return
+    }
+
+    if (lower === 'exit') {
+      isConnected = false
+      showWelcome = false
+      history = []
+      return
+    }
+
+    history = [
+      ...history,
+      { type: 'command', content: cmd, timestamp: Date.now() },
+      { type: 'error', content: `Unknown command: ${cmd}. Type /help for available commands.`, timestamp: Date.now() },
+    ]
+  }
+
+  function executeCalculation(input: string) {
+    history = [
+      ...history,
+      { type: 'input', content: input, timestamp: Date.now() },
+    ]
 
     isGenerating = true
+
     setTimeout(() => {
       try {
         syncOffers()
         if (tab.calculationType === 'cost') {
-          const result = calculateDeliveryCost(tab.input)
-          onupdate({
-            output: result,
-            error: '',
-            hasExecuted: true,
-          })
+          const result = calculateDeliveryCost(input)
+          const parsed = parseOutput(result, 'cost', input, [])
+          onupdate({ output: result, error: '', hasExecuted: true })
+          history = [
+            ...history,
+            { type: 'output', content: result, timestamp: Date.now() },
+            { type: 'result', content: '', parsedResults: parsed, calculationType: 'cost', timestamp: Date.now() },
+          ]
         } else {
-          const transitResult = calculateDeliveryTimeWithTransit(
-            tab.input,
-            tab.transitPackages,
-          )
+          const transitResult = calculateDeliveryTimeWithTransit(input, tab.transitPackages)
           const updatedTransit = [
             ...transitResult.stillInTransit,
             ...transitResult.newTransitPackages,
           ]
+          const parsed = parseOutput(transitResult.output, 'time', input, tab.transitPackages)
           onupdate({
             output: transitResult.output,
             error: '',
@@ -120,243 +280,378 @@
             executionTransitSnapshot: [...tab.transitPackages],
             renamedPackages: transitResult.renamedPackages,
           })
+          history = [
+            ...history,
+            { type: 'output', content: transitResult.output, timestamp: Date.now() },
+            { type: 'result', content: '', parsedResults: parsed, calculationType: 'time', timestamp: Date.now() },
+          ]
         }
       } catch (err) {
-        onupdate({
-          output: '',
-          error: err instanceof Error ? err.message : 'Invalid input',
-          hasExecuted: true,
-        })
+        const errorMsg = err instanceof Error ? err.message : 'Invalid input'
+        onupdate({ output: '', error: errorMsg, hasExecuted: true })
+        history = [
+          ...history,
+          { type: 'error', content: errorMsg, timestamp: Date.now() },
+        ]
       }
       isGenerating = false
     }, 350)
   }
 
-  function handleCalcTypeChange(type: 'cost' | 'time') {
-    onupdate({
-      calculationType: type,
-      output: '',
-      error: '',
-      hasExecuted: false,
-    })
+  function getResultDiscount(result: ParsedResult): number {
+    return parseFloat(result.discount) || 0
   }
 
-  const parsedResults = $derived(
-    tab.hasExecuted
-      ? parseOutput(tab.output, tab.calculationType, tab.input, tab.executionTransitSnapshot)
-      : []
-  )
-
-  const transitCount = $derived(tab.transitPackages.length)
-  const gridCols = 'xl:grid-cols-3'
-
-  const inputLines = $derived(
-    tab.input === '' ? [''] : tab.input.split('\n')
-  )
-
-  const sortedResults = $derived.by(() => {
-    return [...parsedResults].sort((a, b) => {
-      if (tab.calculationType !== 'time') return 0
-      if (a.undeliverable && !b.undeliverable) return 1
-      if (!a.undeliverable && b.undeliverable) return -1
-      const roundA = a.deliveryRound ?? Infinity
-      const roundB = b.deliveryRound ?? Infinity
-      if (roundA !== roundB) return roundA - roundB
-      return (b.weight ?? 0) - (a.weight ?? 0)
-    })
-  })
-
-  function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 1280) {
-      const lines = tab.input.trim().split('\n').map(l => l.trim()).filter(l => l)
-      const lastLine = lines[lines.length - 1]?.toLowerCase()
-      const isClear = lastLine === 'clear'
-      if (
-        tab.calculationType === 'time' &&
-        !isClear &&
-        !isTimeInputComplete(tab.input)
-      ) {
-        return
-      }
-      e.preventDefault()
-      handleExecute()
-    }
-  }
-
-  function formatOfferDist(o: { minDistance: number; maxDistance: number }) {
-    return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`
+  function getDiscountPercent(result: ParsedResult): string {
+    const discount = getResultDiscount(result)
+    if (discount <= 0) return '0'
+    return ((discount / result.deliveryCost) * 100).toFixed(0)
   }
 </script>
 
-<div class="flex-1 flex flex-col overflow-hidden min-h-0">
-  <!-- Calculation Type Selector -->
-  <div class="px-4 py-3 sm:px-6 bg-[#1a0b2e] border-b border-[#2d1b4e] flex items-center gap-3 sm:gap-4 flex-wrap">
-    <span class="text-sm text-zinc-400">Mode:</span>
-    <div class="flex gap-2">
-      <button
-        onclick={() => handleCalcTypeChange('cost')}
-        class="px-3 py-1.5 sm:px-4 text-sm rounded transition-colors {tab.calculationType === 'cost'
-          ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
-          : 'bg-[#251440] text-zinc-400 border border-[#2d1b4e] hover:text-pink-300'}"
-      >
-        Delivery Cost
-      </button>
-      <button
-        onclick={() => handleCalcTypeChange('time')}
-        class="px-3 py-1.5 sm:px-4 text-sm rounded transition-colors {tab.calculationType === 'time'
-          ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
-          : 'bg-[#251440] text-zinc-400 border border-[#2d1b4e] hover:text-pink-300'}"
-      >
-        Delivery Time
-      </button>
+<div class="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0d0118]">
+  <!-- Main terminal area -->
+  <div
+    bind:this={scrollAreaRef}
+    class="flex-1 overflow-y-auto scrollbar-pink p-4 sm:p-6 font-mono text-sm"
+    onscroll={handleScroll}
+  >
+    <!-- Welcome Screen -->
+    {#if showWelcome}
+      <div class="mb-6 space-y-4">
+        <pre class="text-pink-500/60 text-[10px] sm:text-xs leading-tight overflow-x-auto">{MOTORCYCLE_ART}</pre>
+        <pre class="text-pink-400 text-[8px] sm:text-[10px] leading-tight overflow-x-auto">{COURIER_ART}</pre>
+
+        <div class="text-zinc-500 space-y-1">
+          <div class="text-pink-400">Welcome to Courier Service CLI</div>
+          <div class="text-zinc-600">────────────────────────────────────────</div>
+        </div>
+
+        <!-- Offers table -->
+        <div class="text-zinc-600 space-y-0.5">
+          <div class="text-zinc-500 text-xs">Available Offers:</div>
+          <div class="text-zinc-700">--------------------------------------------</div>
+          <div class="text-zinc-500 whitespace-pre">Code    | Distance (km) | Weight (kg) | Disc%</div>
+          <div class="text-zinc-700">--------------------------------------------</div>
+          {#each session.offers as o (o.code)}
+            <div class="text-zinc-500 whitespace-pre">{o.code}  | {formatOfferDist(o).padEnd(13)} | {`${o.minWeight} - ${o.maxWeight}`.padEnd(11)} | {o.discount}%</div>
+          {/each}
+          <div class="text-zinc-700">--------------------------------------------</div>
+        </div>
+
+        <!-- Input format -->
+        <div class="text-zinc-600 space-y-0.5">
+          <div class="text-zinc-500 text-xs">Input Format ({tab.calculationType === 'cost' ? 'Delivery Cost' : 'Delivery Time'}):</div>
+          <div class="text-zinc-600">  Line 1: base_delivery_cost no_of_packages</div>
+          <div class="text-zinc-600">  Line N: pkg_id weight_kg distance_km offer_code</div>
+          {#if tab.calculationType === 'time'}
+            <div class="text-zinc-600">  Last:   no_of_vehicles max_speed max_weight</div>
+          {/if}
+        </div>
+
+        <!-- Commands -->
+        <div class="text-zinc-600 space-y-0.5">
+          <div class="text-zinc-500 text-xs">Commands:</div>
+          <div class="text-zinc-600">  clear                    - Clear terminal</div>
+          <div class="text-zinc-600">  exit                     - Disconnect</div>
+          <div class="text-zinc-600">  /connect                 - Reconnect</div>
+          <div class="text-zinc-600">  /restart                 - Show welcome</div>
+          <div class="text-zinc-600">  /change mode cost|time   - Switch mode</div>
+          <div class="text-zinc-600">  /change use react|vue|svelte - Switch framework</div>
+        </div>
+
+        <div class="text-zinc-700">────────────────────────────────────────</div>
+      </div>
+    {/if}
+
+    <!-- History entries -->
+    {#each history as entry, idx}
+      {#if entry.type === 'clear'}
+        {#if idx === lastClearIndex}
+          <div bind:this={clearMarkerRef} class="border-t border-zinc-700/30 my-4">
+            <div class="text-zinc-600 text-xs py-1">--- terminal cleared ---</div>
+          </div>
+        {/if}
+      {:else if idx > lastClearIndex}
+        {#if entry.type === 'input'}
+          <div class="mb-3">
+            <div class="flex items-start gap-2">
+              <span class="text-pink-400 shrink-0">$</span>
+              <pre class="text-zinc-100 whitespace-pre-wrap break-all">{entry.content}</pre>
+            </div>
+          </div>
+        {:else if entry.type === 'command'}
+          <div class="mb-2">
+            <div class="flex items-start gap-2">
+              <span class="text-violet-400 shrink-0">&gt;</span>
+              <span class="text-violet-300">{entry.content}</span>
+            </div>
+          </div>
+        {:else if entry.type === 'output'}
+          <div class="mb-3 ml-4">
+            <pre class="text-emerald-400 whitespace-pre-wrap">{entry.content}</pre>
+          </div>
+        {:else if entry.type === 'error'}
+          <div class="mb-3 ml-4">
+            <div class="text-red-400">
+              <span class="text-red-500">Error:</span> {entry.content}
+            </div>
+          </div>
+        {:else if entry.type === 'info'}
+          <div class="mb-3 ml-4">
+            <div class="text-cyan-400/80">{entry.content}</div>
+          </div>
+        {:else if entry.type === 'welcome'}
+          <!-- Inline welcome screen for /restart -->
+          <div class="mb-6 space-y-4">
+            <pre class="text-pink-500/60 text-[10px] sm:text-xs leading-tight overflow-x-auto">{MOTORCYCLE_ART}</pre>
+            <pre class="text-pink-400 text-[8px] sm:text-[10px] leading-tight overflow-x-auto">{COURIER_ART}</pre>
+
+            <div class="text-zinc-500 space-y-1">
+              <div class="text-pink-400">Welcome to Courier Service CLI</div>
+              <div class="text-zinc-600">────────────────────────────────────────</div>
+            </div>
+
+            <div class="text-zinc-600 space-y-0.5">
+              <div class="text-zinc-500 text-xs">Available Offers:</div>
+              <div class="text-zinc-700">--------------------------------------------</div>
+              <div class="text-zinc-500 whitespace-pre">Code    | Distance (km) | Weight (kg) | Disc%</div>
+              <div class="text-zinc-700">--------------------------------------------</div>
+              {#each session.offers as o (o.code)}
+                <div class="text-zinc-500 whitespace-pre">{o.code}  | {formatOfferDist(o).padEnd(13)} | {`${o.minWeight} - ${o.maxWeight}`.padEnd(11)} | {o.discount}%</div>
+              {/each}
+              <div class="text-zinc-700">--------------------------------------------</div>
+            </div>
+
+            <div class="text-zinc-600 space-y-0.5">
+              <div class="text-zinc-500 text-xs">Input Format ({tab.calculationType === 'cost' ? 'Delivery Cost' : 'Delivery Time'}):</div>
+              <div class="text-zinc-600">  Line 1: base_delivery_cost no_of_packages</div>
+              <div class="text-zinc-600">  Line N: pkg_id weight_kg distance_km offer_code</div>
+              {#if tab.calculationType === 'time'}
+                <div class="text-zinc-600">  Last:   no_of_vehicles max_speed max_weight</div>
+              {/if}
+            </div>
+
+            <div class="text-zinc-600 space-y-0.5">
+              <div class="text-zinc-500 text-xs">Commands:</div>
+              <div class="text-zinc-600">  clear                    - Clear terminal</div>
+              <div class="text-zinc-600">  exit                     - Disconnect</div>
+              <div class="text-zinc-600">  /connect                 - Reconnect</div>
+              <div class="text-zinc-600">  /restart                 - Show welcome</div>
+              <div class="text-zinc-600">  /change mode cost|time   - Switch mode</div>
+              <div class="text-zinc-600">  /change use react|vue|svelte - Switch framework</div>
+            </div>
+
+            <div class="text-zinc-700">────────────────────────────────────────</div>
+          </div>
+        {:else if entry.type === 'result' && entry.parsedResults}
+          <!-- Result cards -->
+          <div class="mb-4 space-y-4">
+            {#each entry.parsedResults as result}
+              {@const discount = getResultDiscount(result)}
+              {@const discountPercent = getDiscountPercent(result)}
+              <div class="bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3 {result.undeliverable ? 'border-amber-500/40' : 'border-[#2d1b4e]'}">
+                <!-- Undeliverable banner -->
+                {#if result.undeliverable && result.undeliverableReason}
+                  <div class="space-y-2">
+                    <div class="flex justify-end">
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <Package class="w-3 h-3" />
+                        In Transit
+                      </span>
+                    </div>
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 text-xs font-mono text-amber-400">
+                      <span class="text-amber-500">&#x26A0;</span> {result.undeliverableReason}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Delivery Round & Vehicle (time mode, deliverable only) -->
+                {#if !result.undeliverable && result.deliveryRound !== undefined && result.vehicleId !== undefined}
+                  <div class="space-y-1.5 pb-2 border-b border-[#2d1b4e]/50">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+                      <span class="text-zinc-500">Packages Remaining: <span class="text-zinc-300">{result.packagesRemaining ?? 0}</span></span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+                      <span class="text-purple-400/80">Delivery Round: <span class="text-purple-300">{result.deliveryRound}</span></span>
+                      <span class="text-zinc-600">|</span>
+                      <span class="text-cyan-400/80">Vehicle Available: <span class="text-cyan-300">Vehicle{result.vehicleId}</span></span>
+                      <span class="text-zinc-600">|</span>
+                      <span class="text-zinc-500">Current Time: <span class="text-zinc-300">{(result.currentTime ?? 0).toFixed(2)} hrs</span></span>
+                    </div>
+                    <div class="text-xs font-mono text-amber-400/80 mt-1">
+                      {#if result.currentTime !== undefined && result.currentTime > 0}
+                        Vehicle{result.vehicleId} will be available after {result.currentTime.toFixed(2)} + {(result.roundTripTime ?? 0).toFixed(2)} = <span class="text-amber-300">{(result.vehicleReturnTime ?? 0).toFixed(2)} hrs</span>
+                      {:else}
+                        Vehicle{result.vehicleId} will be available after <span class="text-amber-300">{(result.vehicleReturnTime ?? 0).toFixed(2)} hrs</span>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Package ID -->
+                <div class="flex items-center gap-2 pb-2 border-b border-[#2d1b4e]/50">
+                  {#if result.renamedFrom}
+                    <span class="text-zinc-500 font-mono line-through">{result.renamedFrom}</span>
+                    <span class="text-pink-400 font-mono font-semibold">{result.id}</span>
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/20 text-violet-400 border border-violet-500/30">Notified</span>
+                  {:else}
+                    <span class="text-pink-400 font-mono font-semibold">{result.id}</span>
+                  {/if}
+                </div>
+
+                <!-- Package details -->
+                <div class="text-sm text-zinc-300 space-y-1">
+                  <div><span class="text-zinc-500">Base delivery cost:</span> <span class="font-semibold">{result.baseCost}</span></div>
+                  <div>
+                    <span class="text-zinc-500">Weight:</span> <span class="font-semibold">{result.weight}kg</span>
+                    {' | '}
+                    <span class="text-zinc-500">Distance:</span> <span class="font-semibold">{result.distance}km</span>
+                  </div>
+                  <div>
+                    <span class="text-zinc-500">Offer code:</span>
+                    <span class="font-semibold {result.offerApplied ? 'text-emerald-400' : 'text-zinc-600'}">{result.offerApplied || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div class="border-t border-[#2d1b4e]/50 pt-3 space-y-3">
+                  <!-- Delivery Cost -->
+                  <div class="flex justify-between items-start text-sm">
+                    <div>
+                      <div class="text-zinc-400">Delivery Cost</div>
+                      <div class="text-xs text-zinc-600 font-mono mt-0.5">{result.baseCost} + ({result.weight} * 10) + ({result.distance} * 5)</div>
+                    </div>
+                    <div class="text-zinc-300 font-semibold font-mono">{result.deliveryCost.toFixed(2)}</div>
+                  </div>
+
+                  <div class="border-t border-[#2d1b4e]/30"></div>
+
+                  <!-- Discount -->
+                  <div class="flex justify-between items-start text-sm">
+                    <div>
+                      <div class="text-zinc-400">Discount</div>
+                      <div class="text-xs text-zinc-600 mt-0.5">{discount > 0 ? `(${discountPercent}% of ${result.deliveryCost.toFixed(2)} i.e; Delivery Cost)` : '(Offer not applicable as criteria not met)'}</div>
+                    </div>
+                    <div class="font-semibold font-mono {discount > 0 ? 'text-emerald-400' : 'text-zinc-600'}">{discount > 0 ? '-' : ''}{discount.toFixed(2)}</div>
+                  </div>
+
+                  <div class="border-t border-[#2d1b4e]"></div>
+
+                  <!-- Total Cost -->
+                  <div class="flex justify-between items-center">
+                    <div class="text-zinc-300 font-semibold">Total cost</div>
+                    <div class="text-pink-400 font-bold text-lg font-mono">{result.totalCost}</div>
+                  </div>
+
+                  <!-- Delivery Time -->
+                  {#if result.deliveryTime !== undefined}
+                    <div class="border-t border-[#2d1b4e]/30"></div>
+                    <div class="flex justify-between items-center text-sm">
+                      <div class="text-zinc-400">Delivery Time</div>
+                      <div class="font-semibold font-mono {result.undeliverable ? 'text-amber-400' : 'text-cyan-400'}">{result.undeliverable ? 'N/A' : result.deliveryTime + 'hrs'}</div>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    {/each}
+
+    <!-- Generating indicator -->
+    {#if isGenerating}
+      <div class="mb-3 ml-4 flex items-center gap-2">
+        <Loader2 class="w-4 h-4 text-pink-400 animate-spin" />
+        <span class="text-pink-400 animate-pulse text-sm">generating...</span>
+      </div>
+    {/if}
+
+    <!-- Disconnected state -->
+    {#if !isConnected}
+      <div class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="text-zinc-600 text-lg font-mono">Disconnected</div>
+        <div class="text-zinc-700 text-sm">Type <span class="text-violet-400">/connect</span> to reconnect</div>
+      </div>
+    {/if}
+
+    <!-- Transit packages -->
+    {#if transitCount > 0}
+      <div class="mt-4 border border-amber-500/30 rounded-lg overflow-hidden bg-amber-500/5">
+        <div class="px-3 py-2 flex items-center gap-2 text-xs font-mono">
+          <Package class="w-3.5 h-3.5 text-amber-400" />
+          <span class="text-amber-400">{'>_'} packages in transit</span>
+          <span class="text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px]">{transitCount}</span>
+        </div>
+        <div class="px-3 pb-2 space-y-1.5">
+          {#each tab.transitPackages as tp, tpIdx (`${tp.id}-${tpIdx}`)}
+            {@const renameMap = new Map(tab.renamedPackages.map(rp => [rp.newId.toLowerCase(), rp.oldId]))}
+            {@const originalId = renameMap.get(tp.id.toLowerCase())}
+            <div class="flex items-center gap-3 px-2 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded text-xs font-mono">
+              {#if originalId}
+                <span class="flex items-center gap-1.5">
+                  <span class="text-zinc-600 line-through">{originalId}</span>
+                  <span class="text-amber-300">{tp.id}</span>
+                  <span class="inline-flex items-center px-1 py-0.5 rounded text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30">ID Notified</span>
+                </span>
+              {:else}
+                <span class="text-amber-300">{tp.id}</span>
+              {/if}
+              <span class="text-zinc-500">{tp.weight}kg</span>
+              <span class="text-zinc-500">{tp.distance}km</span>
+              <span class="text-zinc-600">{tp.offerCode}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Input area at bottom -->
+  <div class="shrink-0 border-t border-[#2d1b4e] bg-[#0d0118] p-3 sm:p-4">
+    <!-- Status bar -->
+    {#if isConnected}
+      <div class="flex items-center gap-3 mb-2 text-xs font-mono flex-wrap">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="text-zinc-500">Connected</span>
+        </span>
+        <span class="text-zinc-700">|</span>
+        <span class="text-zinc-500">Mode: <span class="text-pink-400">{tab.calculationType === 'cost' ? 'Delivery Cost' : 'Delivery Time'}</span></span>
+        <span class="text-zinc-700">|</span>
+        <span class="text-zinc-500">Framework: <span class={frameworkColors[framework]}>{framework}</span></span>
+        {#if transitCount > 0}
+          <span class="text-zinc-700">|</span>
+          <span class="text-amber-400">Transit: {transitCount}</span>
+        {/if}
+      </div>
+    {:else}
+      <div class="flex items-center gap-2 mb-2 text-xs font-mono">
+        <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+        <span class="text-zinc-500">Disconnected</span>
+        <span class="text-zinc-600">- type /connect to reconnect</span>
+      </div>
+    {/if}
+
+    <!-- Input textarea -->
+    <div class="flex items-start gap-2">
+      <span class="text-pink-400 font-mono text-sm pt-1.5 shrink-0">$</span>
+      <textarea
+        bind:this={inputRef}
+        value={currentInput}
+        oninput={handleTextareaInput}
+        onkeydown={handleKeyDown}
+        placeholder={isConnected ? 'Type calculation input or command...' : 'Type /connect to reconnect...'}
+        class="flex-1 bg-transparent border-none outline-none resize-none text-zinc-100 placeholder:text-zinc-600 font-mono text-sm leading-relaxed min-h-[24px] max-h-[160px]"
+        rows="1"
+        spellcheck="false"
+        disabled={false}
+      ></textarea>
+    </div>
+
+    <!-- Hints -->
+    <div class="mt-2 text-[10px] text-zinc-700 font-mono">
+      Enter to send · Shift+Enter for newline · Type <span class="text-zinc-600">clear</span> to reset
     </div>
   </div>
-
-  <!-- Responsive Layout -->
-  <div class="flex-1 flex flex-col xl:grid overflow-auto xl:overflow-hidden scrollbar-pink {gridCols}">
-    <!-- Input Panel -->
-    <CollapsibleSection
-      title="input"
-      titleColor="text-pink-400"
-      defaultOpen={true}
-      borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
-    >
-      {#snippet icon()}
-        <Terminal class="w-4 h-4 text-pink-400" />
-      {/snippet}
-      {#snippet children()}
-        <div class="flex-1 overflow-auto p-4 font-mono text-sm scrollbar-pink">
-          <!-- CLI Header -->
-          <div class="text-zinc-600 mb-4">
-            <div># Courier Service App Calculator</div>
-            <div># Mode: {tab.calculationType === 'cost' ? 'Delivery Cost' : 'Delivery Time Estimation'}</div>
-            <div class="mt-2"># Input Format:</div>
-            <div># Line 1: base_delivery_cost no_of_packages</div>
-            <div># Line 2: pkg_id1 weight1_in_kg distance1_in_km offer_code1</div>
-            {#if tab.calculationType === 'time'}
-              <div># Last line: no_of_vehicles max_speed max_weight</div>
-            {/if}
-
-            <!-- Dynamic Offer Table -->
-            <div class="text-zinc-700 mt-2">------------------------------------</div>
-            <div class="text-zinc-500">Code | Distance (km) | Weight (kg)</div>
-            <div class="text-zinc-700">------------------------------------</div>
-            {#each session.offers as o (o.code)}
-              <div class="text-zinc-500 whitespace-pre">{`${o.code} | ${formatOfferDist(o).padEnd(13)} | ${o.minWeight} - ${o.maxWeight}`}</div>
-            {/each}
-            <div class="text-zinc-700">------------------------------------</div>
-
-            <div class="mt-2">
-              <span class="hidden xl:inline"># Press Enter to execute | Shift+Enter for new line | Type 'clear' to reset</span>
-              <span class="xl:hidden"># Tap Run to execute | Enter for new line | Type 'clear' to reset</span>
-            </div>
-            <div class="border-t border-[#2d1b4e]/50 my-3"></div>
-          </div>
-
-          <!-- Command Prompt with $ on each line -->
-          <div class="relative">
-            <div
-              class="absolute inset-0 pointer-events-none font-mono text-sm leading-relaxed"
-              style="padding-top: 2px"
-            >
-              {#each inputLines as _, i}
-                <div class="flex gap-2">
-                  <span class="text-pink-400">$</span>
-                </div>
-              {/each}
-            </div>
-            <textarea
-              bind:this={textareaRef}
-              value={tab.input}
-              oninput={(e) => handleInputChange((e.target as HTMLTextAreaElement).value)}
-              onkeydown={handleKeyDown}
-              placeholder="Type your input here..."
-              class="relative bg-transparent border-none outline-none resize-none text-zinc-100 placeholder:text-zinc-600 min-h-[150px] xl:min-h-[200px] w-full font-mono text-sm leading-relaxed"
-              style="padding-left: 1.5rem"
-              spellcheck="false"
-            ></textarea>
-          </div>
-
-          <!-- Transit Section -->
-          {#if tab.calculationType === 'time' && transitCount > 0}
-            <TransitSection
-              transitPackages={tab.transitPackages}
-              renamedPackages={tab.renamedPackages}
-            />
-          {/if}
-
-          <!-- Footer: Run button only (mobile/tablet) -->
-          <div class="mt-4 pt-4 border-t border-[#2d1b4e]/50 flex items-center justify-end">
-            <button
-              onclick={handleExecute}
-              class="xl:hidden px-4 py-1.5 text-sm rounded bg-pink-500/20 text-pink-400 border border-pink-500/30 hover:bg-pink-500/30 transition-colors whitespace-nowrap"
-            >
-              Run
-            </button>
-          </div>
-        </div>
-      {/snippet}
-    </CollapsibleSection>
-
-    <!-- Output Panel -->
-    <CollapsibleSection
-        title="output"
-        titleColor="text-violet-400"
-        defaultOpen={true}
-        borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
-      >
-        {#snippet icon()}
-          <Terminal class="w-4 h-4 text-violet-400" />
-        {/snippet}
-        {#snippet children()}
-          <div class="flex-1 overflow-auto p-4 font-mono text-sm relative scrollbar-pink">
-            {#if isGenerating}
-              <GeneratingOverlay label="generating new output..." />
-            {/if}
-            {#if !tab.hasExecuted && !isGenerating}
-              <div class="text-zinc-600">~ awaiting execution...</div>
-            {:else if tab.error}
-              <div class="text-red-400">
-                <span class="text-red-500">Error:</span> {tab.error}
-              </div>
-            {:else if tab.output}
-              <pre class="whitespace-pre-wrap text-emerald-400">{tab.output}</pre>
-            {/if}
-          </div>
-        {/snippet}
-      </CollapsibleSection>
-
-    <!-- Result Panel -->
-    <CollapsibleSection
-      title="result"
-      titleColor="text-cyan-400"
-      defaultOpen={true}
-      borderClass=""
-    >
-      {#snippet icon()}
-        <Terminal class="w-4 h-4 text-cyan-400" />
-      {/snippet}
-      {#snippet children()}
-        <div class="flex-1 overflow-auto p-4 relative scrollbar-pink">
-          {#if isGenerating}
-            <GeneratingOverlay label="generating new result..." />
-          {/if}
-          {#if !tab.hasExecuted && !isGenerating}
-            <div class="font-mono text-sm text-zinc-600">~ awaiting execution...</div>
-          {:else if parsedResults.length > 0}
-            <div class="space-y-4">
-              {#each sortedResults as result, index (index)}
-                <ResultCard {result} calculationType={tab.calculationType} />
-              {/each}
-            </div>
-          {:else if tab.error}
-            <div class="font-mono text-sm text-red-400">Failed to parse results</div>
-          {/if}
-        </div>
-      {/snippet}
-    </CollapsibleSection>
-  </div>
-
-  <!-- Code Snippet Panel -->
-  <CodeSnippetPanel />
 </div>

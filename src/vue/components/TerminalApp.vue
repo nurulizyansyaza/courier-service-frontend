@@ -20,20 +20,21 @@ function createEmptyTab(id: string, title: string): TabData {
   };
 }
 
-const tabs = ref<TabData[]>([createEmptyTab('1', 'Terminal 1')]);
+const tabs = ref<TabData[]>([createEmptyTab('1', 'courier_cli')]);
 const activeTabId = ref<string>('1');
+let nextTabNumber = 2;
 
 const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value));
 
 function addNewTab() {
   const id = String(Date.now());
-  tabs.value.push(createEmptyTab(id, `Terminal ${tabs.value.length + 1}`));
+  tabs.value.push(createEmptyTab(id, `courier_${nextTabNumber}`));
+  nextTabNumber += 1;
   activeTabId.value = id;
 }
 
 function closeTab(id: string) {
   if (tabs.value.length <= 1) return;
-  const idx = tabs.value.findIndex((t) => t.id === id);
   tabs.value = tabs.value.filter((t) => t.id !== id);
   if (activeTabId.value === id) {
     activeTabId.value = tabs.value[tabs.value.length - 1].id;
@@ -47,34 +48,47 @@ function updateTab(id: string, updates: Partial<TabData>) {
 
 <template>
   <div class="h-screen flex flex-col bg-[#0d0118]">
-    <!-- Top Bar -->
-    <div class="flex items-center bg-[#1a0b2e] border-b border-[#2d1b4e]">
+    <!-- macOS-style window header -->
+    <div class="flex items-center bg-[#1a0b2e] border-b border-[#2d1b4e] px-4 py-2">
+      <!-- macOS traffic lights -->
+      <div class="flex items-center gap-2 mr-4">
+        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+      </div>
+
       <!-- Tab Bar -->
       <div class="flex-1 flex items-center gap-0 overflow-x-auto" style="scrollbar-width: none; -ms-overflow-style: none">
         <div
           v-for="tab in tabs"
           :key="tab.id"
-          class="group flex items-center gap-2 px-4 py-2.5 border-r border-[#2d1b4e] cursor-pointer transition-colors shrink-0"
+          class="group flex items-center gap-2 px-3 py-1.5 border-r border-[#2d1b4e] cursor-pointer transition-colors shrink-0"
           :class="tab.id === activeTabId
             ? 'bg-[#0d0118] text-pink-400'
             : 'bg-[#1a0b2e] text-zinc-400 hover:bg-[#251440] hover:text-pink-300'"
           @click="activeTabId = tab.id"
         >
-          <span class="text-sm font-medium">{{ tab.title }}</span>
+          <span class="text-xs font-mono">{{ tab.title }}</span>
           <button
             class="p-0.5 rounded hover:bg-pink-500/20"
             :class="tabs.length === 1 ? 'invisible' : ''"
             @click.stop="closeTab(tab.id)"
           >
-            <X class="w-3.5 h-3.5" />
+            <X class="w-3 h-3" />
           </button>
         </div>
         <button
-          class="p-2.5 text-zinc-400 hover:text-pink-400 hover:bg-[#251440] transition-colors"
+          class="p-2 text-zinc-400 hover:text-pink-400 hover:bg-[#251440] transition-colors"
+          title="New tab"
           @click="addNewTab"
         >
-          <Plus class="w-4 h-4" />
+          <Plus class="w-3.5 h-3.5" />
         </button>
+      </div>
+
+      <!-- User info area -->
+      <div class="ml-4 text-xs text-zinc-600 font-mono hidden sm:block">
+        courier_cli
       </div>
     </div>
 

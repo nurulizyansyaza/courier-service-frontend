@@ -8,19 +8,21 @@
 
 /* Pink outlined scrollbar */
 .scrollbar-pink::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 .scrollbar-pink::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-pink::-webkit-scrollbar-thumb {
-  background: transparent;
-  border: 2px solid #ec4899;
+  background: rgba(45, 27, 78, 0.3);
   border-radius: 4px;
 }
+.scrollbar-pink::-webkit-scrollbar-thumb {
+  background: rgba(236, 72, 153, 0.5);
+  border-radius: 4px;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
 .scrollbar-pink::-webkit-scrollbar-thumb:hover {
-  border-color: #f472b6;
+  background: rgba(236, 72, 153, 0.7);
+  border-color: rgba(244, 114, 182, 0.5);
 }
 .scrollbar-pink::-webkit-scrollbar-corner {
   background: transparent;
@@ -28,5 +30,5 @@
 /* Firefox */
 .scrollbar-pink {
   scrollbar-width: thin;
-  scrollbar-color: #ec4899 transparent;
+  scrollbar-color: rgba(236, 72, 153, 0.5) rgba(45, 27, 78, 0.3);
 }

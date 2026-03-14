@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Terminal, ChevronDown, ChevronRight, Package, Loader2 } from 'lucide-vue-next'
-import type { TabData, TransitPackage, ParsedResult, UserRole, AdminResult } from '../../core/types'
+import type { TabData, TransitPackage, ParsedResult } from '../../core/types'
 import {
   calculateDeliveryCost,
   calculateDeliveryTimeWithTransit,
@@ -13,7 +13,6 @@ import CodeSnippetPanel from './CodeSnippetPanel.vue'
 
 const props = defineProps<{
   tab: TabData
-  userRole: UserRole
 }>()
 
 const emit = defineEmits<{
@@ -21,11 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
-const { session, processAdminCommand, getOffersForCalculation } = useSession()
+const { session, getOffersForCalculation } = useSession()
 const isGenerating = ref(false)
-
-const showOutput = computed(() => props.userRole === 'super_admin')
-const canManageUsers = computed(() => props.userRole === 'super_admin' || props.userRole === 'vendor')
 
 function syncOffers() {
   setOffers(getOffersForCalculation())
@@ -47,15 +43,9 @@ function isTimeInputComplete(inputText: string): boolean {
   return vehicleParts.every((p: string) => !isNaN(Number(p)))
 }
 
-function isAdminCommand(input: string): boolean {
-  const first = input.trim().split(/\s+/)[0]?.toLowerCase()
-  return first === 'user' || first === 'offer' || first === 'help' || first === 'loginas' || first === 'notifications'
-}
-
 function handleInputChange(newValue: string) {
   if (
     props.tab.calculationType === 'time' &&
-    !isAdminCommand(props.tab.input) &&
     isTimeInputComplete(props.tab.input)
   ) {
     const newLines = newValue.trim().split('\n').map(l => l.trim()).filter(l => l)
@@ -83,7 +73,6 @@ function handleExecute() {
       output: '',
       error: 'Error: No input provided',
       hasExecuted: true,
-      commandType: 'delivery',
     })
     return
   }
@@ -100,30 +89,9 @@ function handleExecute() {
       hasExecuted: false,
       executionTransitSnapshot: [],
       renamedPackages: [],
-      commandType: 'delivery',
-      adminResult: undefined,
     })
     if (textareaRef.value) textareaRef.value.focus()
     return
-  }
-
-  // Check for admin command
-  if (isAdminCommand(trimmedInput)) {
-    const result = processAdminCommand(trimmedInput)
-    if (result) {
-      isGenerating.value = true
-      setTimeout(() => {
-        emit('update', {
-          output: result.success ? result.message : `Error: ${result.message}`,
-          error: result.success ? '' : result.message,
-          hasExecuted: true,
-          commandType: 'admin',
-          adminResult: result,
-        })
-        isGenerating.value = false
-      }, 300)
-      return
-    }
   }
 
   // Delivery calculation
@@ -137,8 +105,6 @@ function handleExecute() {
           output: result,
           error: '',
           hasExecuted: true,
-          commandType: 'delivery',
-          adminResult: undefined,
         })
       } else {
         const transitResult = calculateDeliveryTimeWithTransit(
@@ -156,8 +122,6 @@ function handleExecute() {
           transitPackages: updatedTransit,
           executionTransitSnapshot: [...props.tab.transitPackages],
           renamedPackages: transitResult.renamedPackages,
-          commandType: 'delivery',
-          adminResult: undefined,
         })
       }
     } catch (err) {
@@ -165,8 +129,6 @@ function handleExecute() {
         output: '',
         error: err instanceof Error ? err.message : 'Invalid input',
         hasExecuted: true,
-        commandType: 'delivery',
-        adminResult: undefined,
       })
     }
     isGenerating.value = false
@@ -179,24 +141,20 @@ function handleCalcTypeChange(type: 'cost' | 'time') {
     output: '',
     error: '',
     hasExecuted: false,
-    commandType: 'delivery',
-    adminResult: undefined,
   })
 }
 
 const parsedResults = computed(() =>
-  props.tab.commandType === 'delivery'
-    ? parseOutput(
-        props.tab.output,
-        props.tab.calculationType,
-        props.tab.input,
-        props.tab.executionTransitSnapshot,
-      )
-    : []
+  parseOutput(
+    props.tab.output,
+    props.tab.calculationType,
+    props.tab.input,
+    props.tab.executionTransitSnapshot,
+  )
 )
 
 const transitCount = computed(() => props.tab.transitPackages.length)
-const gridCols = computed(() => showOutput.value ? 'xl:grid-cols-3' : 'xl:grid-cols-2')
+const gridCols = computed(() => 'xl:grid-cols-3')
 
 const inputLines = computed(() =>
   props.tab.input === '' ? [''] : props.tab.input.split('\n')
@@ -219,12 +177,10 @@ function handleKeyDown(e: KeyboardEvent) {
     const lines = props.tab.input.trim().split('\n').map(l => l.trim()).filter(l => l)
     const lastLine = lines[lines.length - 1]?.toLowerCase()
     const isClear = lastLine === 'clear'
-    const isAdmin = isAdminCommand(props.tab.input.trim())
 
     if (
       props.tab.calculationType === 'time' &&
       !isClear &&
-      !isAdmin &&
       !isTimeInputComplete(props.tab.input)
     ) {
       return
@@ -239,52 +195,7 @@ function formatOfferDist(o: { minDistance: number; maxDistance: number }) {
   return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`
 }
 
-// Help section parser (shared between AdminResultCard and HelpOutputText)
-function parseHelpSections(text: string) {
-  const sections: { title: string; lines: string[] }[] = []
-  const rawLines = text.split('\n')
-  let currentSection: { title: string; lines: string[] } | null = null
 
-  for (const line of rawLines) {
-    const trimmed = line.trimEnd()
-    if (!trimmed) {
-      if (currentSection && currentSection.lines.length > 0) {
-        sections.push(currentSection)
-        currentSection = null
-      }
-      continue
-    }
-    const stripped = trimmed.replace(/^\s+/, '')
-    const isHeader =
-      stripped === 'Available commands:' ||
-      (stripped.endsWith(':') &&
-        !stripped.startsWith('user ') &&
-        !stripped.startsWith('offer ') &&
-        !stripped.startsWith('loginas') &&
-        !stripped.startsWith('notifications') &&
-        !stripped.startsWith('clear'))
-
-    if (isHeader) {
-      if (currentSection && currentSection.lines.length > 0) {
-        sections.push(currentSection)
-      }
-      if (stripped === 'Available commands:') {
-        currentSection = null
-        continue
-      }
-      currentSection = { title: stripped.replace(/:$/, ''), lines: [] }
-    } else {
-      if (!currentSection) {
-        currentSection = { title: '', lines: [] }
-      }
-      currentSection.lines.push(stripped)
-    }
-  }
-  if (currentSection && currentSection.lines.length > 0) {
-    sections.push(currentSection)
-  }
-  return sections
-}
 </script>
 
 <template>
@@ -347,9 +258,6 @@ function parseHelpSections(text: string) {
             <div v-for="o in session.offers" :key="o.code" class="text-zinc-500 whitespace-pre">{{ `${o.code} | ${formatOfferDist(o).padEnd(13)} | ${o.minWeight} - ${o.maxWeight}` }}</div>
             <div class="text-zinc-700">------------------------------------</div>
 
-            <!-- Admin commands hint -->
-            <div v-if="canManageUsers" class="mt-1 text-zinc-700"># Type 'help' for available commands</div>
-
             <div class="mt-2">
               <span class="hidden xl:inline"># Press Enter to execute | Shift+Enter for new line | Type 'clear' to reset</span>
               <span class="xl:hidden"># Tap Run to execute | Enter for new line | Type 'clear' to reset</span>
@@ -398,9 +306,8 @@ function parseHelpSections(text: string) {
         </div>
       </CollapsibleSection>
 
-      <!-- Output Panel (super_admin only) -->
+      <!-- Output Panel -->
       <CollapsibleSection
-        v-if="showOutput"
         title="output"
         titleColor="text-violet-400"
         :defaultOpen="true"
@@ -412,17 +319,12 @@ function parseHelpSections(text: string) {
         <div class="flex-1 overflow-auto p-4 font-mono text-sm relative scrollbar-pink">
           <GeneratingOverlay v-if="isGenerating" label="generating new output..." />
           <div v-if="!tab.hasExecuted && !isGenerating" class="text-zinc-600">~ awaiting execution...</div>
-          <div v-else-if="tab.error && tab.commandType === 'delivery'" class="text-red-400">
+          <div v-else-if="tab.error" class="text-red-400">
             <span class="text-red-500">Error:</span> {{ tab.error }}
           </div>
-          <HelpOutputText
-            v-else-if="tab.commandType === 'admin' && tab.adminResult?.type === 'help'"
-            :message="tab.output"
-            :success="tab.adminResult.success"
-          />
           <pre
             v-else-if="tab.output"
-            :class="['whitespace-pre-wrap', tab.commandType === 'admin' ? (tab.adminResult?.success ? 'text-cyan-400' : 'text-red-400') : 'text-emerald-400']"
+            class="whitespace-pre-wrap text-emerald-400"
           >{{ tab.output }}</pre>
         </div>
       </CollapsibleSection>
@@ -440,7 +342,6 @@ function parseHelpSections(text: string) {
         <div class="flex-1 overflow-auto p-4 relative scrollbar-pink">
           <GeneratingOverlay v-if="isGenerating" label="generating new result..." />
           <div v-if="!tab.hasExecuted && !isGenerating" class="font-mono text-sm text-zinc-600">~ awaiting execution...</div>
-          <AdminResultCard v-else-if="tab.commandType === 'admin' && tab.adminResult" :result="tab.adminResult" />
           <div v-else-if="parsedResults.length > 0" class="space-y-4">
             <ResultCard
               v-for="(result, index) in sortedResults"
@@ -454,8 +355,8 @@ function parseHelpSections(text: string) {
       </CollapsibleSection>
     </div>
 
-    <!-- Code Snippet Panel (super_admin only) -->
-    <CodeSnippetPanel v-if="userRole === 'super_admin'" />
+    <!-- Code Snippet Panel -->
+    <CodeSnippetPanel />
   </div>
 </template>
 
@@ -569,121 +470,7 @@ const TransitSection = defineComponent({
   `,
 })
 
-const AdminResultCard = defineComponent({
-  name: 'AdminResultCard',
-  props: {
-    result: { type: Object as () => AdminResult, required: true },
-  },
-  setup(props) {
-    const isSuccess = props.result.success
-    const borderColor = isSuccess ? 'border-cyan-500/30' : 'border-red-500/30'
-    const bgColor = isSuccess ? 'bg-cyan-500/5' : 'bg-red-500/5'
 
-    function parseHelpSectionsLocal(text: string) {
-      const sections: { title: string; lines: string[] }[] = []
-      const rawLines = text.split('\n')
-      let currentSection: { title: string; lines: string[] } | null = null
-      for (const line of rawLines) {
-        const trimmed = line.trimEnd()
-        if (!trimmed) {
-          if (currentSection && currentSection.lines.length > 0) {
-            sections.push(currentSection)
-            currentSection = null
-          }
-          continue
-        }
-        const stripped = trimmed.replace(/^\s+/, '')
-        const isHeader =
-          stripped === 'Available commands:' ||
-          (stripped.endsWith(':') &&
-            !stripped.startsWith('user ') &&
-            !stripped.startsWith('offer ') &&
-            !stripped.startsWith('loginas') &&
-            !stripped.startsWith('notifications') &&
-            !stripped.startsWith('clear'))
-        if (isHeader) {
-          if (currentSection && currentSection.lines.length > 0) sections.push(currentSection)
-          if (stripped === 'Available commands:') { currentSection = null; continue }
-          currentSection = { title: stripped.replace(/:$/, ''), lines: [] }
-        } else {
-          if (!currentSection) currentSection = { title: '', lines: [] }
-          currentSection.lines.push(stripped)
-        }
-      }
-      if (currentSection && currentSection.lines.length > 0) sections.push(currentSection)
-      return sections
-    }
-
-    return { isSuccess, borderColor, bgColor, parseHelpSectionsLocal }
-  },
-  template: `
-    <!-- User list -->
-    <div v-if="result.type === 'user-list' && Array.isArray(result.data)" :class="[bgColor, 'border rounded-lg p-4 space-y-3', borderColor]">
-      <div class="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">Registered Vendors</div>
-      <div v-if="(result.data as any[]).length === 0" class="text-xs font-mono text-zinc-500 py-2">No registered vendors.</div>
-      <div v-else class="space-y-2">
-        <div v-for="(u, i) in (result.data as any[])" :key="i" class="flex items-center gap-3 px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono">
-          <span class="text-pink-400 min-w-[80px]">{{ u.username }}</span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">vendor</span>
-          <span class="text-zinc-500">{{ u.email || '(no email)' }}</span>
-          <span class="text-zinc-700 ml-auto">{{ u.createdAt }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Offer list -->
-    <div v-else-if="result.type === 'offer-list' && Array.isArray(result.data) && result.data.length > 0 && 'code' in result.data[0]" :class="[bgColor, 'border rounded-lg p-4 space-y-3', borderColor]">
-      <div class="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">Offer Codes</div>
-      <div class="space-y-2">
-        <div v-for="(o, i) in (result.data as any[])" :key="i" class="flex items-center gap-3 px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono">
-          <span class="text-emerald-400 min-w-[60px]">{{ o.code }}</span>
-          <span class="text-pink-400">{{ o.discount }}%</span>
-          <span class="text-zinc-500">dist: {{ o.minDistance }}-{{ o.maxDistance }}km</span>
-          <span class="text-zinc-500">wt: {{ o.minWeight }}-{{ o.maxWeight }}kg</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Help -->
-    <div v-else-if="result.type === 'help'" class="bg-[#1a0b2e]/40 border border-[#2d1b4e] rounded-lg p-4">
-      <div class="text-xs font-mono text-cyan-400 pb-2 mb-3 border-b border-[#2d1b4e]/50">Command Reference</div>
-      <div class="grid grid-cols-1 gap-4">
-        <div v-for="(section, i) in parseHelpSectionsLocal(result.message)" :key="i" class="space-y-1.5">
-          <div v-if="section.title" class="text-[11px] font-mono text-pink-400/80 pb-1 mb-1">{{ section.title }}</div>
-          <template v-for="(line, j) in section.lines" :key="j">
-            <div v-if="line.indexOf(' - ') > -1" class="flex flex-col 2xl:flex-row 2xl:items-baseline gap-0.5 2xl:gap-2 text-xs font-mono">
-              <span class="text-zinc-300 whitespace-nowrap">{{ line.slice(0, line.indexOf(' - ')).trim() }}</span>
-              <span class="text-zinc-600 hidden 2xl:inline">—</span>
-              <span class="text-zinc-500 pl-2 2xl:pl-0">{{ line.slice(line.indexOf(' - ') + 3).trim() }}</span>
-            </div>
-            <div v-else class="text-xs font-mono text-zinc-300">{{ line }}</div>
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notification list -->
-    <div v-else-if="result.type === 'notification-list' && Array.isArray(result.data) && result.data.length > 0" :class="[bgColor, 'border rounded-lg p-4 space-y-3', borderColor]">
-      <div class="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">Sent Notifications</div>
-      <div class="space-y-2">
-        <div v-for="(n, i) in (result.data as any[])" :key="i" class="px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="text-zinc-600">{{ n.timestamp }}</span>
-            <span class="text-pink-400">To: {{ n.to }}</span>
-          </div>
-          <div class="text-cyan-400">{{ n.subject }}</div>
-          <div class="text-zinc-500 whitespace-pre-wrap">{{ n.body }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Generic success/error -->
-    <div v-else :class="[bgColor, 'border rounded-lg p-4', borderColor]">
-      <div :class="['text-xs font-mono pb-2 mb-2 border-b border-[#2d1b4e]/50', isSuccess ? 'text-emerald-400' : 'text-red-400']">{{ isSuccess ? 'Success' : 'Error' }}</div>
-      <pre :class="['text-sm font-mono whitespace-pre-wrap', isSuccess ? 'text-zinc-300' : 'text-red-300']">{{ result.message }}</pre>
-    </div>
-  `,
-})
 
 const ResultCard = defineComponent({
   name: 'ResultCard',
@@ -803,77 +590,12 @@ const ResultCard = defineComponent({
   `,
 })
 
-const HelpOutputText = defineComponent({
-  name: 'HelpOutputText',
-  props: {
-    message: { type: String, required: true },
-    success: { type: Boolean, required: true },
-  },
-  setup(props) {
-    function parseHelpSectionsLocal(text: string) {
-      const sections: { title: string; lines: string[] }[] = []
-      const rawLines = text.split('\n')
-      let currentSection: { title: string; lines: string[] } | null = null
-      for (const line of rawLines) {
-        const trimmed = line.trimEnd()
-        if (!trimmed) {
-          if (currentSection && currentSection.lines.length > 0) {
-            sections.push(currentSection)
-            currentSection = null
-          }
-          continue
-        }
-        const stripped = trimmed.replace(/^\s+/, '')
-        const isHeader =
-          stripped === 'Available commands:' ||
-          (stripped.endsWith(':') &&
-            !stripped.startsWith('user ') &&
-            !stripped.startsWith('offer ') &&
-            !stripped.startsWith('loginas') &&
-            !stripped.startsWith('notifications') &&
-            !stripped.startsWith('clear'))
-        if (isHeader) {
-          if (currentSection && currentSection.lines.length > 0) sections.push(currentSection)
-          if (stripped === 'Available commands:') { currentSection = null; continue }
-          currentSection = { title: stripped.replace(/:$/, ''), lines: [] }
-        } else {
-          if (!currentSection) currentSection = { title: '', lines: [] }
-          currentSection.lines.push(stripped)
-        }
-      }
-      if (currentSection && currentSection.lines.length > 0) sections.push(currentSection)
-      return sections
-    }
-    return { parseHelpSectionsLocal }
-  },
-  template: `
-    <div class="p-0">
-      <div class="text-xs font-mono text-cyan-400 pb-2 mb-3 border-b border-[#2d1b4e]/50">Command Reference</div>
-      <div class="grid grid-cols-1 gap-4">
-        <div v-for="(section, i) in parseHelpSectionsLocal(message)" :key="i" class="space-y-1.5">
-          <div v-if="section.title" class="text-[11px] font-mono text-cyan-400/80 pb-1 mb-1">{{ section.title }}</div>
-          <template v-for="(line, j) in section.lines" :key="j">
-            <div v-if="line.indexOf(' - ') > -1" class="flex flex-col 2xl:flex-row 2xl:items-baseline gap-0.5 2xl:gap-2 text-xs font-mono">
-              <span class="text-cyan-300 whitespace-nowrap">{{ line.slice(0, line.indexOf(' - ')).trim() }}</span>
-              <span class="text-zinc-600 hidden 2xl:inline">—</span>
-              <span class="text-cyan-400/60 pl-2 2xl:pl-0">{{ line.slice(line.indexOf(' - ') + 3).trim() }}</span>
-            </div>
-            <div v-else class="text-xs font-mono text-cyan-300">{{ line }}</div>
-          </template>
-        </div>
-      </div>
-    </div>
-  `,
-})
-
 export default {
   components: {
     CollapsibleSection,
     GeneratingOverlay,
     TransitSection,
-    AdminResultCard,
     ResultCard,
-    HelpOutputText,
   },
 }
 </script>

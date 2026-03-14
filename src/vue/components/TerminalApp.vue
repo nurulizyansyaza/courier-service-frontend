@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Plus, X, LogOut, ArrowLeft, Shield, Users, User } from 'lucide-vue-next';
+import { Plus, X } from 'lucide-vue-next';
 import type { TabData } from '../../core/types';
-import { useSession } from '../sessionStore';
 import TerminalTab from './TerminalTab.vue';
-
-const { session, logout, isActingAsVendor, backToAdmin } = useSession();
 
 function createEmptyTab(id: string, title: string): TabData {
   return {
@@ -20,7 +17,6 @@ function createEmptyTab(id: string, title: string): TabData {
     executionTransitSnapshot: [],
     renamedPackages: [],
     isGenerating: false,
-    commandType: 'delivery',
   };
 }
 
@@ -47,50 +43,12 @@ function closeTab(id: string) {
 function updateTab(id: string, updates: Partial<TabData>) {
   tabs.value = tabs.value.map((t) => (t.id === id ? { ...t, ...updates } : t));
 }
-
-const role = computed(() => session.currentUser?.role || 'guest');
-
-const username = computed(() => session.currentUser?.username || 'guest');
-const actingAsVendor = computed(() => isActingAsVendor());
-
-const roleConfig = computed(() => {
-  const configs: Record<string, { label: string; color: string; icon: typeof Shield }> = {
-    super_admin: { label: 'Super Admin', color: 'text-purple-400', icon: Shield },
-    vendor: { label: 'Vendor', color: 'text-cyan-400', icon: Users },
-    guest: { label: 'Guest', color: 'text-zinc-400', icon: User },
-  };
-  return configs[role.value] || configs.guest;
-});
 </script>
 
 <template>
   <div class="h-screen flex flex-col bg-[#0d0118]">
     <!-- Top Bar -->
     <div class="flex items-center bg-[#1a0b2e] border-b border-[#2d1b4e]">
-      <!-- Back to Admin button (when acting as vendor) -->
-      <button
-        v-if="actingAsVendor"
-        class="flex items-center gap-1.5 px-3 py-2 border-r border-[#2d1b4e] text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 transition-colors shrink-0"
-        title="Back to Admin"
-        @click="backToAdmin"
-      >
-        <ArrowLeft class="w-3.5 h-3.5" />
-        <span class="text-xs font-mono hidden sm:inline">Admin</span>
-      </button>
-
-      <!-- Role Badge -->
-      <div class="flex items-center gap-2 px-3 py-2 border-r border-[#2d1b4e] shrink-0">
-        <component :is="roleConfig.icon" class="w-3.5 h-3.5" :class="roleConfig.color" />
-        <span class="text-xs font-mono" :class="roleConfig.color">{{ username }}</span>
-        <span class="text-[10px] font-mono text-zinc-600 bg-[#251440] px-1.5 py-0.5 rounded">{{ roleConfig.label }}</span>
-        <span
-          v-if="actingAsVendor"
-          class="text-[10px] font-mono text-violet-400 bg-violet-500/20 px-1.5 py-0.5 rounded border border-violet-500/30"
-        >
-          via admin
-        </span>
-      </div>
-
       <!-- Tab Bar -->
       <div class="flex-1 flex items-center gap-0 overflow-x-auto" style="scrollbar-width: none; -ms-overflow-style: none">
         <div
@@ -118,15 +76,6 @@ const roleConfig = computed(() => {
           <Plus class="w-4 h-4" />
         </button>
       </div>
-
-      <!-- Logout -->
-      <button
-        class="flex items-center gap-2 px-3 py-2 border-l border-[#2d1b4e] text-zinc-500 hover:text-pink-400 transition-colors shrink-0"
-        @click="actingAsVendor ? backToAdmin() : logout()"
-      >
-        <LogOut class="w-3.5 h-3.5" />
-        <span class="text-xs font-mono hidden sm:inline">{{ actingAsVendor ? 'back' : 'logout' }}</span>
-      </button>
     </div>
 
     <!-- Active Tab Content -->
@@ -134,7 +83,6 @@ const roleConfig = computed(() => {
       v-if="activeTab"
       :key="activeTab.id"
       :tab="activeTab"
-      :userRole="role"
       @update="(updates: Partial<TabData>) => updateTab(activeTab!.id, updates)"
     />
   </div>

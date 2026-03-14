@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Terminal } from 'lucide-svelte'
-  import type { TabData, UserRole } from '../../core/types'
+  import type { TabData } from '../../core/types'
   import {
     calculateDeliveryCost,
     calculateDeliveryTimeWithTransit,
@@ -11,20 +11,15 @@
   import CollapsibleSection from './CollapsibleSection.svelte'
   import GeneratingOverlay from './GeneratingOverlay.svelte'
   import TransitSection from './TransitSection.svelte'
-  import AdminResultCard from './AdminResultCard.svelte'
   import ResultCard from './ResultCard.svelte'
-  import HelpOutputText from './HelpOutputText.svelte'
   import CodeSnippetPanel from './CodeSnippetPanel.svelte'
 
-  let { tab, userRole, onupdate }: { tab: TabData; userRole: UserRole; onupdate: (updates: Partial<TabData>) => void } = $props()
+  let { tab, onupdate }: { tab: TabData; onupdate: (updates: Partial<TabData>) => void } = $props()
 
   let textareaRef: HTMLTextAreaElement | null = $state(null)
   let isGenerating = $state(false)
 
-  const { session, processAdminCommand, getOffersForCalculation } = useSession()
-
-  const showOutput = $derived(userRole === 'super_admin')
-  const canManageUsers = $derived(userRole === 'super_admin' || userRole === 'vendor')
+  const { session, getOffersForCalculation } = useSession()
 
   function syncOffers() {
     setOffers(getOffersForCalculation())
@@ -46,15 +41,9 @@
     return vehicleParts.every((p: string) => !isNaN(Number(p)))
   }
 
-  function isAdminCommand(input: string): boolean {
-    const first = input.trim().split(/\s+/)[0]?.toLowerCase()
-    return first === 'user' || first === 'offer' || first === 'help' || first === 'loginas' || first === 'notifications'
-  }
-
   function handleInputChange(newValue: string) {
     if (
       tab.calculationType === 'time' &&
-      !isAdminCommand(tab.input) &&
       isTimeInputComplete(tab.input)
     ) {
       const newLines = newValue.trim().split('\n').map(l => l.trim()).filter(l => l)
@@ -82,7 +71,6 @@
         output: '',
         error: 'Error: No input provided',
         hasExecuted: true,
-        commandType: 'delivery',
       })
       return
     }
@@ -99,29 +87,9 @@
         hasExecuted: false,
         executionTransitSnapshot: [],
         renamedPackages: [],
-        commandType: 'delivery',
-        adminResult: undefined,
       })
       if (textareaRef) textareaRef.focus()
       return
-    }
-
-    if (isAdminCommand(trimmedInput)) {
-      const result = processAdminCommand(trimmedInput)
-      if (result) {
-        isGenerating = true
-        setTimeout(() => {
-          onupdate({
-            output: result.success ? result.message : `Error: ${result.message}`,
-            error: result.success ? '' : result.message,
-            hasExecuted: true,
-            commandType: 'admin',
-            adminResult: result,
-          })
-          isGenerating = false
-        }, 300)
-        return
-      }
     }
 
     isGenerating = true
@@ -134,8 +102,6 @@
             output: result,
             error: '',
             hasExecuted: true,
-            commandType: 'delivery',
-            adminResult: undefined,
           })
         } else {
           const transitResult = calculateDeliveryTimeWithTransit(
@@ -153,8 +119,6 @@
             transitPackages: updatedTransit,
             executionTransitSnapshot: [...tab.transitPackages],
             renamedPackages: transitResult.renamedPackages,
-            commandType: 'delivery',
-            adminResult: undefined,
           })
         }
       } catch (err) {
@@ -162,8 +126,6 @@
           output: '',
           error: err instanceof Error ? err.message : 'Invalid input',
           hasExecuted: true,
-          commandType: 'delivery',
-          adminResult: undefined,
         })
       }
       isGenerating = false
@@ -176,19 +138,17 @@
       output: '',
       error: '',
       hasExecuted: false,
-      commandType: 'delivery',
-      adminResult: undefined,
     })
   }
 
   const parsedResults = $derived(
-    tab.commandType === 'delivery'
+    tab.hasExecuted
       ? parseOutput(tab.output, tab.calculationType, tab.input, tab.executionTransitSnapshot)
       : []
   )
 
   const transitCount = $derived(tab.transitPackages.length)
-  const gridCols = $derived(showOutput ? 'xl:grid-cols-3' : 'xl:grid-cols-2')
+  const gridCols = 'xl:grid-cols-3'
 
   const inputLines = $derived(
     tab.input === '' ? [''] : tab.input.split('\n')
@@ -211,12 +171,9 @@
       const lines = tab.input.trim().split('\n').map(l => l.trim()).filter(l => l)
       const lastLine = lines[lines.length - 1]?.toLowerCase()
       const isClear = lastLine === 'clear'
-      const isAdmin = isAdminCommand(tab.input.trim())
-
       if (
         tab.calculationType === 'time' &&
         !isClear &&
-        !isAdmin &&
         !isTimeInputComplete(tab.input)
       ) {
         return
@@ -289,11 +246,6 @@
             {/each}
             <div class="text-zinc-700">------------------------------------</div>
 
-            <!-- Admin commands hint -->
-            {#if canManageUsers}
-              <div class="mt-1 text-zinc-700"># Type 'help' for available commands</div>
-            {/if}
-
             <div class="mt-2">
               <span class="hidden xl:inline"># Press Enter to execute | Shift+Enter for new line | Type 'clear' to reset</span>
               <span class="xl:hidden"># Tap Run to execute | Enter for new line | Type 'clear' to reset</span>
@@ -346,9 +298,8 @@
       {/snippet}
     </CollapsibleSection>
 
-    <!-- Output Panel (super_admin only) -->
-    {#if showOutput}
-      <CollapsibleSection
+    <!-- Output Panel -->
+    <CollapsibleSection
         title="output"
         titleColor="text-violet-400"
         defaultOpen={true}
@@ -364,24 +315,16 @@
             {/if}
             {#if !tab.hasExecuted && !isGenerating}
               <div class="text-zinc-600">~ awaiting execution...</div>
-            {:else if tab.error && tab.commandType === 'delivery'}
+            {:else if tab.error}
               <div class="text-red-400">
                 <span class="text-red-500">Error:</span> {tab.error}
               </div>
-            {:else if tab.commandType === 'admin' && tab.adminResult?.type === 'help'}
-              <HelpOutputText
-                message={tab.output}
-                success={tab.adminResult.success}
-              />
             {:else if tab.output}
-              <pre
-                class="whitespace-pre-wrap {tab.commandType === 'admin' ? (tab.adminResult?.success ? 'text-cyan-400' : 'text-red-400') : 'text-emerald-400'}"
-              >{tab.output}</pre>
+              <pre class="whitespace-pre-wrap text-emerald-400">{tab.output}</pre>
             {/if}
           </div>
         {/snippet}
       </CollapsibleSection>
-    {/if}
 
     <!-- Result Panel -->
     <CollapsibleSection
@@ -400,8 +343,6 @@
           {/if}
           {#if !tab.hasExecuted && !isGenerating}
             <div class="font-mono text-sm text-zinc-600">~ awaiting execution...</div>
-          {:else if tab.commandType === 'admin' && tab.adminResult}
-            <AdminResultCard result={tab.adminResult} />
           {:else if parsedResults.length > 0}
             <div class="space-y-4">
               {#each sortedResults as result, index (index)}
@@ -416,8 +357,6 @@
     </CollapsibleSection>
   </div>
 
-  <!-- Code Snippet Panel (super_admin only) -->
-  {#if userRole === 'super_admin'}
-    <CodeSnippetPanel />
-  {/if}
+  <!-- Code Snippet Panel -->
+  <CodeSnippetPanel />
 </div>

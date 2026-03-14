@@ -6,7 +6,7 @@ import {
   Package,
   Loader2,
 } from "lucide-react";
-import type { TabData, TransitPackage, ParsedResult, UserRole, AdminResult } from "../../core/types";
+import type { TabData, TransitPackage, ParsedResult } from "../../core/types";
 import {
   calculateDeliveryCost,
   calculateDeliveryTimeWithTransit,
@@ -19,7 +19,6 @@ import { CodeSnippetPanel } from "./CodeSnippetPanel";
 interface TerminalTabProps {
   tab: TabData;
   onUpdate: (updates: Partial<TabData>) => void;
-  userRole: UserRole;
 }
 
 interface CollapsibleSectionProps {
@@ -90,19 +89,13 @@ function GeneratingOverlay({ label }: { label: string }) {
 export function TerminalTab({
   tab,
   onUpdate,
-  userRole,
 }: TerminalTabProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
     session,
-    processAdminCommand,
     getOffersForCalculation,
   } = useSession();
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const showOutput = userRole === "super_admin";
-  const canManageUsers =
-    userRole === "super_admin" || userRole === "vendor";
 
   // Sync session offers into calculation engine
   const syncOffers = useCallback(() => {
@@ -131,22 +124,10 @@ export function TerminalTab({
     return vehicleParts.every((p: string) => !isNaN(Number(p)));
   };
 
-  const isAdminCommand = (input: string): boolean => {
-    const first = input.trim().split(/\s+/)[0]?.toLowerCase();
-    return (
-      first === "user" ||
-      first === "offer" ||
-      first === "help" ||
-      first === "loginas" ||
-      first === "notifications"
-    );
-  };
-
   const handleInputChange = (newValue: string) => {
     // For time mode: if input is already complete, only allow 'clear' on the next line
     if (
       tab.calculationType === "time" &&
-      !isAdminCommand(tab.input) &&
       isTimeInputComplete(tab.input)
     ) {
       const newLines = newValue
@@ -183,7 +164,6 @@ export function TerminalTab({
         output: "",
         error: "Error: No input provided",
         hasExecuted: true,
-        commandType: "delivery",
       });
       return;
     }
@@ -203,32 +183,9 @@ export function TerminalTab({
         hasExecuted: false,
         executionTransitSnapshot: [],
         renamedPackages: [],
-        commandType: "delivery",
-        adminResult: undefined,
       });
       if (textareaRef.current) textareaRef.current.focus();
       return;
-    }
-
-    // Check for admin command
-    if (isAdminCommand(trimmedInput)) {
-      const result = processAdminCommand(trimmedInput);
-      if (result) {
-        setIsGenerating(true);
-        setTimeout(() => {
-          onUpdate({
-            output: result.success
-              ? result.message
-              : `Error: ${result.message}`,
-            error: result.success ? "" : result.message,
-            hasExecuted: true,
-            commandType: "admin",
-            adminResult: result,
-          });
-          setIsGenerating(false);
-        }, 300);
-        return;
-      }
     }
 
     // Delivery calculation — show generating state
@@ -242,8 +199,6 @@ export function TerminalTab({
             output: result,
             error: "",
             hasExecuted: true,
-            commandType: "delivery",
-            adminResult: undefined,
           });
         } else {
           const transitResult =
@@ -262,8 +217,6 @@ export function TerminalTab({
             transitPackages: updatedTransit,
             executionTransitSnapshot: [...tab.transitPackages],
             renamedPackages: transitResult.renamedPackages,
-            commandType: "delivery",
-            adminResult: undefined,
           });
         }
       } catch (err) {
@@ -274,8 +227,6 @@ export function TerminalTab({
               ? err.message
               : "Invalid input",
           hasExecuted: true,
-          commandType: "delivery",
-          adminResult: undefined,
         });
       }
       setIsGenerating(false);
@@ -288,26 +239,19 @@ export function TerminalTab({
       output: "",
       error: "",
       hasExecuted: false,
-      commandType: "delivery",
-      adminResult: undefined,
     });
   };
 
   // Parse results
-  const parsedResults =
-    tab.commandType === "delivery"
-      ? parseOutput(
-          tab.output,
-          tab.calculationType,
-          tab.input,
-          tab.executionTransitSnapshot,
-        )
-      : [];
+  const parsedResults = parseOutput(
+    tab.output,
+    tab.calculationType,
+    tab.input,
+    tab.executionTransitSnapshot,
+  );
 
   const transitCount = tab.transitPackages.length;
-  const gridCols = showOutput
-    ? "xl:grid-cols-3"
-    : "xl:grid-cols-2";
+  const gridCols = "xl:grid-cols-3";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -403,13 +347,6 @@ export function TerminalTab({
                 ------------------------------------
               </div>
 
-              {/* Admin commands hint */}
-              {canManageUsers && (
-                <div className="mt-1 text-zinc-700">
-                  # Type 'help' for available commands
-                </div>
-              )}
-
               <div className="mt-2">
                 <span className="hidden xl:inline">
                   # Press Enter to execute | Shift+Enter for new
@@ -461,14 +398,10 @@ export function TerminalTab({
                     const lastLine =
                       lines[lines.length - 1]?.toLowerCase();
                     const isClear = lastLine === "clear";
-                    const isAdmin = isAdminCommand(
-                      tab.input.trim(),
-                    );
 
                     if (
                       tab.calculationType === "time" &&
                       !isClear &&
-                      !isAdmin &&
                       !isTimeInputComplete(tab.input)
                     ) {
                       return;
@@ -505,47 +438,36 @@ export function TerminalTab({
           </div>
         </CollapsibleSection>
 
-        {/* Output Panel (super_admin only) */}
-        {showOutput && (
-          <CollapsibleSection
-            title="output"
-            icon={
-              <Terminal className="w-4 h-4 text-violet-400" />
-            }
-            titleColor="text-violet-400"
-            defaultOpen={true}
-            borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
-          >
-            <div className="flex-1 overflow-auto p-4 font-mono text-sm relative scrollbar-pink">
-              {isGenerating && (
-                <GeneratingOverlay label="generating new output..." />
-              )}
-              {!tab.hasExecuted && !isGenerating ? (
-                <div className="text-zinc-600">
-                  ~ awaiting execution...
-                </div>
-              ) : tab.error &&
-                tab.commandType === "delivery" ? (
-                <div className="text-red-400">
-                  <span className="text-red-500">Error:</span>{" "}
-                  {tab.error}
-                </div>
-              ) : tab.commandType === "admin" &&
-                tab.adminResult?.type === "help" ? (
-                <HelpOutputText
-                  message={tab.output}
-                  success={tab.adminResult.success}
-                />
-              ) : tab.output ? (
-                <pre
-                  className={`whitespace-pre-wrap ${tab.commandType === "admin" ? (tab.adminResult?.success ? "text-cyan-400" : "text-red-400") : "text-emerald-400"}`}
-                >
-                  {tab.output}
-                </pre>
-              ) : null}
-            </div>
-          </CollapsibleSection>
-        )}
+        {/* Output Panel */}
+        <CollapsibleSection
+          title="output"
+          icon={
+            <Terminal className="w-4 h-4 text-violet-400" />
+          }
+          titleColor="text-violet-400"
+          defaultOpen={true}
+          borderClass="xl:border-r border-b xl:border-b-0 border-[#2d1b4e]"
+        >
+          <div className="flex-1 overflow-auto p-4 font-mono text-sm relative scrollbar-pink">
+            {isGenerating && (
+              <GeneratingOverlay label="generating new output..." />
+            )}
+            {!tab.hasExecuted && !isGenerating ? (
+              <div className="text-zinc-600">
+                ~ awaiting execution...
+              </div>
+            ) : tab.error ? (
+              <div className="text-red-400">
+                <span className="text-red-500">Error:</span>{" "}
+                {tab.error}
+              </div>
+            ) : tab.output ? (
+              <pre className="whitespace-pre-wrap text-emerald-400">
+                {tab.output}
+              </pre>
+            ) : null}
+          </div>
+        </CollapsibleSection>
 
         {/* Result Panel */}
         <CollapsibleSection
@@ -563,9 +485,6 @@ export function TerminalTab({
               <div className="font-mono text-sm text-zinc-600">
                 ~ awaiting execution...
               </div>
-            ) : tab.commandType === "admin" &&
-              tab.adminResult ? (
-              <AdminResultCard result={tab.adminResult} />
             ) : parsedResults.length > 0 ? (
               <div className="space-y-4">
                 {[...parsedResults]
@@ -599,266 +518,8 @@ export function TerminalTab({
         </CollapsibleSection>
       </div>
 
-      {/* Code Snippet Panel — per-tab, independent framework selection (super_admin only) */}
-      {userRole === 'super_admin' && <CodeSnippetPanel />}
-    </div>
-  );
-}
-
-// ── Admin Result Card ──────────────────────────────────────────────────
-
-function AdminResultCard({ result }: { result: AdminResult }) {
-  const isSuccess = result.success;
-  const borderColor = isSuccess
-    ? "border-cyan-500/30"
-    : "border-red-500/30";
-  const bgColor = isSuccess ? "bg-cyan-500/5" : "bg-red-500/5";
-
-  // User list
-  if (
-    result.type === "user-list" &&
-    Array.isArray(result.data)
-  ) {
-    return (
-      <div
-        className={`${bgColor} border ${borderColor} rounded-lg p-4 space-y-3`}
-      >
-        <div className="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">
-          Registered Vendors
-        </div>
-        {(result.data as any[]).length === 0 ? (
-          <div className="text-xs font-mono text-zinc-500 py-2">
-            No registered vendors.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {(result.data as any[]).map((u, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono"
-              >
-                <span className="text-pink-400 min-w-[80px]">
-                  {u.username}
-                </span>
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30`}
-                >
-                  vendor
-                </span>
-                <span className="text-zinc-500">
-                  {u.email || "(no email)"}
-                </span>
-                <span className="text-zinc-700 ml-auto">
-                  {u.createdAt}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Offer list
-  if (
-    result.type === "offer-list" &&
-    Array.isArray(result.data) &&
-    result.data.length > 0 &&
-    "code" in result.data[0]
-  ) {
-    return (
-      <div
-        className={`${bgColor} border ${borderColor} rounded-lg p-4 space-y-3`}
-      >
-        <div className="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">
-          Offer Codes
-        </div>
-        <div className="space-y-2">
-          {(result.data as any[]).map((o, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono"
-            >
-              <span className="text-emerald-400 min-w-[60px]">
-                {o.code}
-              </span>
-              <span className="text-pink-400">
-                {o.discount}%
-              </span>
-              <span className="text-zinc-500">
-                dist: {o.minDistance}-{o.maxDistance}km
-              </span>
-              <span className="text-zinc-500">
-                wt: {o.minWeight}-{o.maxWeight}kg
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Help
-  if (result.type === "help") {
-    // Parse help text into sections separated by empty lines
-    const sections: { title: string; lines: string[] }[] = [];
-    const rawLines = result.message.split("\n");
-    let currentSection: {
-      title: string;
-      lines: string[];
-    } | null = null;
-
-    for (const line of rawLines) {
-      const trimmed = line.trimEnd();
-      if (!trimmed) {
-        // Empty line = section boundary
-        if (currentSection && currentSection.lines.length > 0) {
-          sections.push(currentSection);
-          currentSection = null;
-        }
-        continue;
-      }
-      // Check if it's a section header (ends with ':' and not starting with a command keyword)
-      const stripped = trimmed.replace(/^\s+/, "");
-      const isHeader =
-        stripped === "Available commands:" ||
-        (stripped.endsWith(":") &&
-          !stripped.startsWith("user ") &&
-          !stripped.startsWith("offer ") &&
-          !stripped.startsWith("loginas") &&
-          !stripped.startsWith("notifications") &&
-          !stripped.startsWith("clear"));
-
-      if (isHeader) {
-        if (currentSection && currentSection.lines.length > 0) {
-          sections.push(currentSection);
-        }
-        if (stripped === "Available commands:") {
-          // Skip the top-level header, don't create a section for it
-          currentSection = null;
-          continue;
-        }
-        currentSection = {
-          title: stripped.replace(/:$/, ""),
-          lines: [],
-        };
-      } else {
-        if (!currentSection) {
-          currentSection = { title: "", lines: [] };
-        }
-        currentSection.lines.push(stripped);
-      }
-    }
-    if (currentSection && currentSection.lines.length > 0) {
-      sections.push(currentSection);
-    }
-
-    return (
-      <div className="bg-[#1a0b2e]/40 border border-[#2d1b4e] rounded-lg p-4">
-        <div className="text-xs font-mono text-cyan-400 pb-2 mb-3 border-b border-[#2d1b4e]/50">
-          Command Reference
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          {sections.map((section, i) => (
-            <div key={i} className="space-y-1.5">
-              {section.title && (
-                <div className="text-[11px] font-mono text-pink-400/80 pb-1 mb-1">
-                  {section.title}
-                </div>
-              )}
-              {section.lines.map((line, j) => {
-                // Parse "command - description" pattern
-                const dashIdx = line.indexOf(" - ");
-                if (dashIdx > -1) {
-                  const cmd = line.slice(0, dashIdx).trim();
-                  const desc = line.slice(dashIdx + 3).trim();
-                  return (
-                    <div
-                      key={j}
-                      className="flex flex-col 2xl:flex-row 2xl:items-baseline gap-0.5 2xl:gap-2 text-xs font-mono"
-                    >
-                      <span className="text-zinc-300 whitespace-nowrap">
-                        {cmd}
-                      </span>
-                      <span className="text-zinc-600 hidden 2xl:inline">
-                        —
-                      </span>
-                      <span className="text-zinc-500 pl-2 2xl:pl-0">
-                        {desc}
-                      </span>
-                    </div>
-                  );
-                }
-                // Lines without description (e.g. offer add with long params)
-                return (
-                  <div
-                    key={j}
-                    className="text-xs font-mono text-zinc-300"
-                  >
-                    {line}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Notification list
-  if (
-    result.type === "notification-list" &&
-    Array.isArray(result.data) &&
-    result.data.length > 0
-  ) {
-    return (
-      <div
-        className={`${bgColor} border ${borderColor} rounded-lg p-4 space-y-3`}
-      >
-        <div className="text-xs font-mono text-cyan-400 pb-2 border-b border-[#2d1b4e]/50">
-          Sent Notifications
-        </div>
-        <div className="space-y-2">
-          {(result.data as any[]).map((n, i) => (
-            <div
-              key={i}
-              className="px-3 py-2 bg-[#1a0b2e]/40 rounded text-xs font-mono space-y-1"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-600">
-                  {n.timestamp}
-                </span>
-                <span className="text-pink-400">
-                  To: {n.to}
-                </span>
-              </div>
-              <div className="text-cyan-400">{n.subject}</div>
-              <div className="text-zinc-500 whitespace-pre-wrap">
-                {n.body}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Generic success/error
-  return (
-    <div
-      className={`${bgColor} border ${borderColor} rounded-lg p-4`}
-    >
-      <div
-        className={`text-xs font-mono ${isSuccess ? "text-emerald-400" : "text-red-400"} pb-2 mb-2 border-b border-[#2d1b4e]/50`}
-      >
-        {isSuccess ? "Success" : "Error"}
-      </div>
-      <pre
-        className={`text-sm font-mono whitespace-pre-wrap ${isSuccess ? "text-zinc-300" : "text-red-300"}`}
-      >
-        {result.message}
-      </pre>
+      {/* Code Snippet Panel — per-tab, independent framework selection */}
+      <CodeSnippetPanel />
     </div>
   );
 }
@@ -1166,119 +827,6 @@ function ResultCard({
             </div>
           </>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ── Help Output Text Component ──────────────────────────────────────────
-
-function HelpOutputText({
-  message,
-  success,
-}: {
-  message: string;
-  success: boolean;
-}) {
-  // Parse help text into sections separated by empty lines
-  const sections: { title: string; lines: string[] }[] = [];
-  const rawLines = message.split("\n");
-  let currentSection: {
-    title: string;
-    lines: string[];
-  } | null = null;
-
-  for (const line of rawLines) {
-    const trimmed = line.trimEnd();
-    if (!trimmed) {
-      // Empty line = section boundary
-      if (currentSection && currentSection.lines.length > 0) {
-        sections.push(currentSection);
-        currentSection = null;
-      }
-      continue;
-    }
-    // Check if it's a section header (ends with ':' and not starting with a command keyword)
-    const stripped = trimmed.replace(/^\s+/, "");
-    const isHeader =
-      stripped === "Available commands:" ||
-      (stripped.endsWith(":") &&
-        !stripped.startsWith("user ") &&
-        !stripped.startsWith("offer ") &&
-        !stripped.startsWith("loginas") &&
-        !stripped.startsWith("notifications") &&
-        !stripped.startsWith("clear"));
-
-    if (isHeader) {
-      if (currentSection && currentSection.lines.length > 0) {
-        sections.push(currentSection);
-      }
-      if (stripped === "Available commands:") {
-        // Skip the top-level header, don't create a section for it
-        currentSection = null;
-        continue;
-      }
-      currentSection = {
-        title: stripped.replace(/:$/, ""),
-        lines: [],
-      };
-    } else {
-      if (!currentSection) {
-        currentSection = { title: "", lines: [] };
-      }
-      currentSection.lines.push(stripped);
-    }
-  }
-  if (currentSection && currentSection.lines.length > 0) {
-    sections.push(currentSection);
-  }
-
-  return (
-    <div className="p-0">
-      <div className="text-xs font-mono text-cyan-400 pb-2 mb-3 border-b border-[#2d1b4e]/50">Command Reference</div>
-      <div className="grid grid-cols-1 gap-4">
-        {sections.map((section, i) => (
-          <div key={i} className="space-y-1.5">
-            {section.title && (
-              <div className="text-[11px] font-mono text-cyan-400/80 pb-1 mb-1">
-                {section.title}
-              </div>
-            )}
-            {section.lines.map((line, j) => {
-              // Parse "command - description" pattern
-              const dashIdx = line.indexOf(" - ");
-              if (dashIdx > -1) {
-                const cmd = line.slice(0, dashIdx).trim();
-                const desc = line.slice(dashIdx + 3).trim();
-                return (
-                  <div
-                    key={j}
-                    className="flex flex-col 2xl:flex-row 2xl:items-baseline gap-0.5 2xl:gap-2 text-xs font-mono"
-                  >
-                    <span className="text-cyan-300 whitespace-nowrap">
-                      {cmd}
-                    </span>
-                    <span className="text-zinc-600 hidden 2xl:inline">
-                      —
-                    </span>
-                    <span className="text-cyan-400/60 pl-2 2xl:pl-0">
-                      {desc}
-                    </span>
-                  </div>
-                );
-              }
-              // Lines without description (e.g. offer add with long params)
-              return (
-                <div
-                  key={j}
-                  className="text-xs font-mono text-cyan-300"
-                >
-                  {line}
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
     </div>
   );

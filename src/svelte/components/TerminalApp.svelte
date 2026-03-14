@@ -1,23 +1,13 @@
 <script lang="ts">
   import { Plus, X } from 'lucide-svelte';
   import type { TabData } from '../../core/types';
+  import {
+    createEmptyTab,
+    addTab,
+    closeTab as closeTabLogic,
+    updateTab as updateTabLogic,
+  } from '../../core/tabManager';
   import TerminalTab from './TerminalTab.svelte';
-
-  function createEmptyTab(id: string, title: string): TabData {
-    return {
-      id,
-      title,
-      calculationType: 'cost',
-      input: '',
-      output: '',
-      error: '',
-      hasExecuted: false,
-      transitPackages: [],
-      executionTransitSnapshot: [],
-      renamedPackages: [],
-      isGenerating: false,
-    };
-  }
 
   let tabs: TabData[] = $state([createEmptyTab('1', 'courier_cli')]);
   let activeTabId = $state('1');
@@ -27,23 +17,21 @@
 
   function addNewTab() {
     const newId = String(Date.now());
-    const newTab = createEmptyTab(newId, `courier_${nextTabNumber}`);
+    const result = addTab(tabs, newId, `courier_${nextTabNumber}`);
     nextTabNumber += 1;
-    tabs = [...tabs, newTab];
-    activeTabId = newId;
+    tabs = result.tabs;
+    activeTabId = result.activeTabId;
   }
 
   function closeTab(id: string) {
-    if (tabs.length === 1) return;
-    const newTabs = tabs.filter((tab) => tab.id !== id);
-    tabs = newTabs;
-    if (activeTabId === id) {
-      activeTabId = newTabs[newTabs.length - 1].id;
-    }
+    const result = closeTabLogic(tabs, id, activeTabId);
+    if (!result) return;
+    tabs = result.tabs;
+    activeTabId = result.activeTabId;
   }
 
   function updateTab(id: string, updates: Partial<TabData>) {
-    tabs = tabs.map((tab) => (tab.id === id ? { ...tab, ...updates } : tab));
+    tabs = updateTabLogic(tabs, id, updates);
   }
 </script>
 

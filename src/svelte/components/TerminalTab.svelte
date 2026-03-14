@@ -1,21 +1,12 @@
 <script lang="ts">
-  import type { TabData, TransitPackage, ParsedResult } from '../../core/types'
-  import {
-    calculateDeliveryCost,
-    calculateDeliveryTimeWithTransit,
-    parseOutput,
-    setOffers,
-  } from '../../core/calculations'
+  import type { TabData, ParsedResult, HistoryEntry } from '../../core/types'
+  import { setOffers } from '../../core/calculations'
+  import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
+  import { formatOfferDist, getLastClearIndex } from '../../core/utils'
+  import { processCommand } from '../../core/terminalCommands'
+  import { runCalculation } from '../../core/calculationRunner'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
-
-  interface HistoryEntry {
-    type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome'
-    content: string
-    parsedResults?: ParsedResult[]
-    calculationType?: 'cost' | 'time'
-    timestamp?: number
-  }
 
   let { tab, onupdate }: { tab: TabData; onupdate: (updates: Partial<TabData>) => void } = $props()
 
@@ -37,12 +28,7 @@
   }
 
   const transitCount = $derived(tab.transitPackages.length)
-  const frameworkColors: Record<string, string> = {
-    react: 'text-cyan-400',
-    vue: 'text-emerald-400',
-    svelte: 'text-orange-400',
-  }
-  const lastClearIndex = $derived((() => { for (let i = history.length - 1; i >= 0; i--) { if (history[i].type === 'clear') return i; } return -1; })())
+  const lastClearIndex = $derived(getLastClearIndex(history))
 
   $effect(() => {
     if (scrollAreaRef && shouldAutoScroll) {
@@ -50,41 +36,6 @@
       scrollAreaRef.scrollTop = scrollAreaRef.scrollHeight
     }
   })
-
-  const MOTORCYCLE_ART = `                            ___
-                          /~   ~\\
-                         |_      |
-                         |/     __-__
-                          \\   /~     ~~-_
-                           ~~ -~~\\       ~\\
-                            /     |        \\
-               ,           /     /          \\
-             //   _ _---~~~    //-_          \\
-           /  (/~~ )    _____/-__  ~-_       _-\\             _________
-         /  _-~\\\\0) ~~~~         ~~-_ \\__--~~   \`\\  ___---~~~        /'
-        /_-~                       _-/'          )~/               /'
-        (___________/           _-~/'         _-~~/             _-~
-     _ ----- _~-_\\\\\\\\        _-~ /'      __--~   (_ ______---~~~--_
-  _-~         ~-_~\\\\\\\\      (   (     -_~          ~-_  |          ~-_
- /~~~~\\          \\ \\~~       ~-_ ~-_    ~\\            ~~--__-----_    \\
-;    / \\ ______-----\\           ~-__~-~~~~~~--_             ~~--_ \\    .
-|   | \\((*)~~~~~~~~~~|      __--~~             ~-_               ) |   |
-|    \\  |~|~---------)__--~~                      \\_____________/ /    ,
- \\    ~-----~    /  /~                             )  \\    ~-----~    /
-  ~-_         _-~ /_______________________________/    \`-_         _-~
-     ~ ----- ~                                            ~ ----- ~`
-
-  const COURIER_ART = ` \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557
-\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
-\u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D
-\u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u255D  \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557
-\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551  \u2588\u2588\u2551
- \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D  \u255A\u2550\u255D\u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u255D  \u255A\u2550\u255D
-              CLI Version 1.0.0`
-
-  function formatOfferDist(o: { minDistance: number; maxDistance: number }) {
-    return o.minDistance === 0 ? `< ${o.maxDistance}` : `${o.minDistance} - ${o.maxDistance}`
-  }
 
   function handleScroll() {
     if (scrollAreaRef) {
@@ -130,132 +81,60 @@
   }
 
   function handleCommand(cmd: string): boolean {
-    const trimmed = cmd.trim()
-    const lower = trimmed.toLowerCase()
+    const action = processCommand(cmd, isConnected)
+    if (!action) return false
 
-    if (lower === '/connect') {
-      if (!isConnected) {
+    switch (action.type) {
+      case 'connect':
         isConnected = true
-        history = [{ type: 'info', content: '✓ Connected to Courier CLI', timestamp: Date.now() }]
+        history = [{ type: 'info', content: '\u2713 Connected to Courier CLI', timestamp: Date.now() }]
         showWelcome = true
-        return true
-      } else {
-        history = [...history, { type: 'error', content: '✗ Already connected', timestamp: Date.now() }]
-        return true
-      }
+        break
+      case 'already-connected':
+      case 'not-connected':
+      case 'unknown-framework':
+      case 'unknown-mode':
+      case 'invalid-change':
+        history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
+        break
+      case 'change-framework':
+        framework = action.framework
+        history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
+        break
+      case 'change-mode':
+        onupdate({ calculationType: action.mode })
+        history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
+        break
+      case 'clear':
+        history = [...history, { ...action.historyEntries[0], timestamp: Date.now() }]
+        setTimeout(() => {
+          if (scrollAreaRef && clearMarkerRef) {
+            clearMarkerRef.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 50)
+        break
+      case 'restart':
+        history = [...history, { ...action.historyEntries[0], timestamp: Date.now() }]
+        break
+      case 'exit':
+        isConnected = false
+        history = []
+        showWelcome = false
+        onupdate(action.tabUpdates)
+        break
     }
-
-    if (!isConnected) {
-      history = [...history, { type: 'error', content: '✗ CLI not connected. Type /connect to reconnect.', timestamp: Date.now() }]
-      return true
-    }
-
-    if (lower.startsWith('/change ')) {
-      const parts = trimmed.substring(8).trim().split(' ')
-
-      if (parts[0] === 'use' && parts[1]) {
-        const targetFramework = parts[1].toLowerCase()
-        if (targetFramework === 'react' || targetFramework === 'vue' || targetFramework === 'svelte') {
-          framework = targetFramework as 'react' | 'vue' | 'svelte'
-          history = [...history, { type: 'info', content: `✓ Framework switched to ${targetFramework.charAt(0).toUpperCase() + targetFramework.slice(1)}.js`, timestamp: Date.now() }]
-          return true
-        } else {
-          history = [...history, { type: 'error', content: `✗ Unknown framework "${parts[1]}". Available: react, vue, svelte`, timestamp: Date.now() }]
-          return true
-        }
-      }
-
-      if (parts[0] === 'mode' && parts[1]) {
-        const targetMode = parts[1].toLowerCase()
-        if (targetMode === 'cost' || targetMode === 'time') {
-          onupdate({ calculationType: targetMode as 'cost' | 'time' })
-          history = [...history, { type: 'info', content: `✓ Mode switched to ${targetMode === 'cost' ? 'Delivery Cost' : 'Delivery Time Estimation'}`, timestamp: Date.now() }]
-          return true
-        } else {
-          history = [...history, { type: 'error', content: `✗ Unknown mode "${parts[1]}". Available: cost, time`, timestamp: Date.now() }]
-          return true
-        }
-      }
-
-      history = [...history, { type: 'error', content: '✗ Invalid /change command. Try: /change use react | /change mode cost', timestamp: Date.now() }]
-      return true
-    }
-
-    if (lower === 'clear') {
-      history = [...history, { type: 'clear', content: cmd, timestamp: Date.now() }]
-      setTimeout(() => {
-        if (scrollAreaRef && clearMarkerRef) {
-          clearMarkerRef.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }, 50)
-      return true
-    }
-
-    if (lower === '/restart') {
-      history = [...history, { type: 'welcome', content: 'restart', timestamp: Date.now() }]
-      return true
-    }
-
-    if (lower === 'exit') {
-      isConnected = false
-      history = []
-      showWelcome = false
-      onupdate({ input: '', output: '', error: '', hasExecuted: false, executionTransitSnapshot: [], renamedPackages: [] })
-      return true
-    }
-
-    return false
+    return true
   }
 
   function executeCalculation(input: string) {
-    history = [
-      ...history,
-      { type: 'input', content: input, timestamp: Date.now() },
-    ]
-
+    history = [...history, { type: 'input', content: input, timestamp: Date.now() }]
     isGenerating = true
 
     setTimeout(() => {
-      try {
-        syncOffers()
-        if (tab.calculationType === 'cost') {
-          const result = calculateDeliveryCost(input)
-          const parsed = parseOutput(result, 'cost', input, [])
-          onupdate({ output: result, error: '', hasExecuted: true })
-          history = [
-            ...history,
-            { type: 'output', content: result, timestamp: Date.now() },
-            { type: 'result', content: '', parsedResults: parsed, calculationType: 'cost', timestamp: Date.now() },
-          ]
-        } else {
-          const transitResult = calculateDeliveryTimeWithTransit(input, tab.transitPackages)
-          const updatedTransit = [
-            ...transitResult.stillInTransit,
-            ...transitResult.newTransitPackages,
-          ]
-          const parsed = parseOutput(transitResult.output, 'time', input, tab.transitPackages)
-          onupdate({
-            output: transitResult.output,
-            error: '',
-            hasExecuted: true,
-            transitPackages: updatedTransit,
-            executionTransitSnapshot: [...tab.transitPackages],
-            renamedPackages: transitResult.renamedPackages,
-          })
-          history = [
-            ...history,
-            { type: 'output', content: transitResult.output, timestamp: Date.now() },
-            { type: 'result', content: '', parsedResults: parsed, calculationType: 'time', timestamp: Date.now() },
-          ]
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Invalid input'
-        onupdate({ output: '', error: errorMsg, hasExecuted: true })
-        history = [
-          ...history,
-          { type: 'error', content: errorMsg, timestamp: Date.now() },
-        ]
-      }
+      syncOffers()
+      const result = runCalculation(input, tab.calculationType, tab.transitPackages)
+      onupdate(result.tabUpdates)
+      history = [...history, ...result.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
       isGenerating = false
     }, 350)
   }
@@ -267,6 +146,10 @@
   function getDiscountPercent(result: ParsedResult): string {
     const discount = getResultDiscount(result)
     if (discount <= 0) return '0'
+    const deliveryCost = result.deliveryCost
+    return ((discount / deliveryCost) * 100).toFixed(0)
+  }
+</script>
 <div class="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0d0118]">
   <!-- Main terminal area with scrollable history -->
   <div
@@ -610,7 +493,7 @@
     {#if isConnected}
       <div class="flex items-center gap-4 text-[10px] text-zinc-600 mb-2 flex-wrap">
         <span>Mode: <span class="text-pink-400">{tab.calculationType === 'cost' ? 'Cost' : 'Time'}</span></span>
-        <span>Framework: <span class={frameworkColors[framework]}>{framework}</span></span>
+        <span>Framework: <span class={FRAMEWORK_COLORS[framework]}>{framework}</span></span>
         {#if transitCount > 0}
           <span>Transit: <span class="text-amber-400">{transitCount}</span></span>
         {/if}

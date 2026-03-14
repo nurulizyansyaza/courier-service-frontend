@@ -8,6 +8,7 @@ import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { switchFramework } from '../../core/frameworkSwitcher'
+import { getTabState, setTabState } from '../../core/tabStateManager'
 import { useSession } from '../sessionStore'
 
 const props = defineProps<{ tab: TabData }>()
@@ -19,15 +20,30 @@ const inputRef = ref<HTMLTextAreaElement | null>(null)
 const scrollAreaRef = ref<HTMLDivElement | null>(null)
 const clearMarkerRef = ref<HTMLDivElement | null>(null)
 
-const currentInput = ref('')
-const history = ref<HistoryEntry[]>([])
-const framework = ref<'react' | 'vue' | 'svelte'>(
-  typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : 'react'
+const tabState = getTabState(props.tab.id)
+const currentInput = ref(tabState.currentInput)
+const history = ref<HistoryEntry[]>(tabState.history)
+const framework = ref<'react' | 'vue' | 'svelte'>(tabState.framework)
+const isGenerating = ref(tabState.isGenerating)
+const showWelcome = ref(tabState.showWelcome)
+const shouldAutoScroll = ref(tabState.shouldAutoScroll)
+const isConnected = ref(tabState.isConnected)
+
+// Sync state changes back to tab state manager
+watch(
+  [currentInput, history, framework, isGenerating, showWelcome, shouldAutoScroll, isConnected],
+  () => {
+    setTabState(props.tab.id, {
+      currentInput: currentInput.value,
+      history: history.value,
+      framework: framework.value,
+      isGenerating: isGenerating.value,
+      showWelcome: showWelcome.value,
+      shouldAutoScroll: shouldAutoScroll.value,
+      isConnected: isConnected.value,
+    })
+  },
 )
-const isGenerating = ref(false)
-const showWelcome = ref(true)
-const shouldAutoScroll = ref(true)
-const isConnected = ref(true)
 
 // Auto-scroll to bottom when history changes
 watch(
@@ -510,8 +526,8 @@ function getDiscountPercent(result: ParsedResult): string | number {
               <div class="text-zinc-300 whitespace-pre-wrap break-all">{{ entry.content }}</div>
             </div>
             <div
-              v-if="idx === getLastClearIndex(history) && idx >= history.length - 1"
-              :style="{ height: 'calc(100vh - 260px)' }"
+              v-if="idx === getLastClearIndex(history)"
+              :style="{ height: tab.transitPackages.length > 0 ? 'calc(100vh - 262px)' : 'calc(100vh - 210px)' }"
             ></div>
           </div>
         </template>

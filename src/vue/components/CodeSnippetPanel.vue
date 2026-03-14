@@ -22,6 +22,7 @@ import {
   tokenize,
   drawLockedCode,
 } from '../../core/codeSnippets';
+import { processSnippetCommand } from '../../core/snippetCommands';
 
 // ── Component state ──────────────────────────────────────────────────
 
@@ -87,76 +88,36 @@ function handleEditableScroll() {
   }
 }
 
-function processCommand(input: string) {
-  const trimmed = input.trim().toLowerCase();
-  const parts = trimmed.split(/\s+/);
+function handleCommand(input: string) {
+  const result = processSnippetCommand(input, {
+    framework: framework.value,
+    isModified: isModified.value,
+    editedUI: editedUI.value,
+  });
+  if (!result) return null;
 
-  if (trimmed === 'help') {
-    return {
-      output:
-        "Available commands:\n  use react     - Switch to React.js\n  use vue       - Switch to Vue.js\n  use svelte    - Switch to Svelte\n  current       - Show current framework\n  reset         - Reset UI layer to original\n  clear         - Clear command history\n  help          - Show this help",
-      isError: false,
-    };
+  switch (result.type) {
+    case 'clear':
+      commandHistory.value = [];
+      return null;
+    case 'reset':
+      editedUI.value = { ...editedUI.value, [result.framework]: ORIGINAL_EDITABLE[result.framework] };
+      return { output: result.output, isError: false };
+    case 'switch':
+      framework.value = result.framework;
+      return { output: result.output, isError: false };
+    case 'confirm-switch':
+      pendingSwitch.value = result.framework;
+      keepEdits.value = true;
+      return { output: result.output, isError: false };
+    case 'output':
+      return { output: result.output, isError: result.isError };
   }
-
-  if (trimmed === 'clear') {
-    commandHistory.value = [];
-    return null;
-  }
-
-  if (trimmed === 'current') {
-    return {
-      output: `Current framework: ${FRAMEWORK_CONFIG[framework.value].label}${isModified.value ? ' (modified)' : ''}`,
-      isError: false,
-    };
-  }
-
-  if (trimmed === 'reset') {
-    editedUI.value = { ...editedUI.value, [framework.value]: ORIGINAL_EDITABLE[framework.value] };
-    return {
-      output: `UI layer for ${FRAMEWORK_CONFIG[framework.value].label} reset to original`,
-      isError: false,
-    };
-  }
-
-  if (parts[0] === 'use' && parts.length === 2) {
-    const target = parts[1] as Framework;
-    if (target === 'react' || target === 'vue' || target === 'svelte') {
-      if (target === framework.value) {
-        return {
-          output: `Already using ${FRAMEWORK_CONFIG[target].label}`,
-          isError: false,
-        };
-      }
-      if (isModified.value) {
-        pendingSwitch.value = target;
-        keepEdits.value = true;
-        return {
-          output: `You have custom edits on ${FRAMEWORK_CONFIG[framework.value].label}. Confirm switch above.`,
-          isError: false,
-        };
-      }
-      framework.value = target;
-      return {
-        output: `Switched to ${FRAMEWORK_CONFIG[target].label}`,
-        isError: false,
-      };
-    }
-    return {
-      output: `Unknown framework "${parts[1]}". Available: react | vue | svelte`,
-      isError: true,
-    };
-  }
-
-  return {
-    output: `Unknown command "${trimmed}". Type 'help' for available commands.`,
-    isError: true,
-  };
 }
 
 function handleSubmit() {
   if (!commandInput.value.trim()) return;
-  const result = processCommand(commandInput.value);
+  const result = handleCommand(commandInput.value);
   if (result) {
     commandHistory.value = [
       ...commandHistory.value,

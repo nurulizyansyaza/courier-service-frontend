@@ -6,6 +6,7 @@
   import { processCommand } from '../../core/terminalCommands'
   import { runCalculation } from '../../core/calculationRunner'
   import { switchFramework } from '../../core/frameworkSwitcher'
+  import { getTabState, setTabState } from '../../core/tabStateManager'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
 
@@ -14,15 +15,22 @@
   let inputRef: HTMLTextAreaElement | null = $state(null)
   let scrollAreaRef: HTMLDivElement | null = $state(null)
   let clearMarkerRef: HTMLDivElement | null = $state(null)
-  let currentInput = $state('')
-  let history: HistoryEntry[] = $state([])
-  let framework: 'react' | 'vue' | 'svelte' = $state(
-    typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : 'react'
-  )
-  let isGenerating = $state(false)
-  let showWelcome = $state(true)
-  let shouldAutoScroll = $state(true)
-  let isConnected = $state(true)
+  const tabState = getTabState(tab.id)
+  let currentInput = $state(tabState.currentInput)
+  let history: HistoryEntry[] = $state(tabState.history)
+  let framework: 'react' | 'vue' | 'svelte' = $state(tabState.framework)
+  let isGenerating = $state(tabState.isGenerating)
+  let showWelcome = $state(tabState.showWelcome)
+  let shouldAutoScroll = $state(tabState.shouldAutoScroll)
+  let isConnected = $state(tabState.isConnected)
+
+  // Sync state changes back to tab state manager
+  $effect(() => {
+    setTabState(tab.id, {
+      currentInput, history, framework,
+      isGenerating, showWelcome, shouldAutoScroll, isConnected,
+    })
+  })
 
   const { session, getOffersForCalculation } = useSession()
 
@@ -368,9 +376,7 @@
                 <span class="text-pink-400 select-none">❯</span>
                 <div class="text-zinc-300 whitespace-pre-wrap break-all">{entry.content}</div>
               </div>
-              {#if idx >= history.length - 1}
-                <div style="height: calc(100vh - 260px)"></div>
-              {/if}
+              <div style="height: {transitCount > 0 ? 'calc(100vh - 262px)' : 'calc(100vh - 210px)'}"></div>
             </div>
           {:else}
             <div>

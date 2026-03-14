@@ -20,6 +20,7 @@ import { runCalculation } from "../../core/calculationRunner";
 import { switchFramework } from "../../core/frameworkSwitcher";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
+import { getTabState, setTabState } from "../../core/tabStateManager";
 import { useSession } from "../sessionStore";
 
 interface TerminalTabProps {
@@ -35,15 +36,22 @@ export function TerminalTab({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const clearMarkerRef = useRef<HTMLDivElement>(null);
   const { session, getOffersForCalculation } = useSession();
-  const [currentInput, setCurrentInput] = useState("");
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [framework, setFramework] = useState<"react" | "vue" | "svelte">(
-    typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : "react"
-  );
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-  const [isConnected, setIsConnected] = useState(true);
+  const tabState = getTabState(tab.id);
+  const [currentInput, setCurrentInput] = useState(tabState.currentInput);
+  const [history, setHistory] = useState<HistoryEntry[]>(tabState.history);
+  const [framework, setFramework] = useState<"react" | "vue" | "svelte">(tabState.framework);
+  const [isGenerating, setIsGenerating] = useState(tabState.isGenerating);
+  const [showWelcome, setShowWelcome] = useState(tabState.showWelcome);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(tabState.shouldAutoScroll);
+  const [isConnected, setIsConnected] = useState(tabState.isConnected);
+
+  // Sync state changes back to tab state manager
+  useEffect(() => {
+    setTabState(tab.id, {
+      currentInput, history, framework,
+      isGenerating, showWelcome, shouldAutoScroll, isConnected,
+    });
+  }, [tab.id, currentInput, history, framework, isGenerating, showWelcome, shouldAutoScroll, isConnected]);
 
   // Auto-scroll to bottom only when shouldAutoScroll is true
   useEffect(() => {
@@ -281,8 +289,8 @@ export function TerminalTab({
                   <span className="text-pink-400 select-none">❯</span>
                   <div className="text-zinc-300 whitespace-pre-wrap break-all">{entry.content}</div>
                 </div>
-                {idx === lastClearIndex && idx >= history.length - 1 && (
-                  <div style={{ height: 'calc(100vh - 260px)' }}></div>
+                {idx === lastClearIndex && (
+                  <div style={{ height: transitCount > 0 ? 'calc(100vh - 262px)' : 'calc(100vh - 210px)' }}></div>
                 )}
               </div>
             )}

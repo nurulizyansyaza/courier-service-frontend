@@ -93,6 +93,15 @@ npm test        # runs vitest
 
 Tests mock `fetch` to simulate API unavailability, verifying local fallback behavior.
 
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push/PR to `main`:
+
+1. **Test** — checks out `courier-service-core`, builds it, then runs type-check, tests, and production build
+2. **Trigger Staging Deploy** — on push to `main`, dispatches a `repository_dispatch` event to [`courier-service`](https://github.com/nurulizyansyaza/courier-service), which triggers the staging deployment pipeline
+
+Requires a `DEPLOY_TRIGGER_TOKEN` secret (fine-grained PAT with Actions + Contents write access on the `courier-service` repo).
+
 ## Build
 
 ```bash

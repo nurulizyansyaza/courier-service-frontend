@@ -3,3 +3,6 @@ node_modules
 *.local
 .DS_Store
 *.sw?
+
+# Framework switching artifacts (modified at runtime)
+framework.config.json

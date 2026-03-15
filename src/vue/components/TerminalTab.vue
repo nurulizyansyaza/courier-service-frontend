@@ -2,7 +2,7 @@
 import { ref, watch, nextTick } from 'vue'
 import { Package, Loader2 } from 'lucide-vue-next'
 import type { TabData, TransitPackage, ParsedResult, HistoryEntry } from '../../core/types'
-import { setOffers } from '../../core/calculations'
+import { setOffers } from '@nurulizyansyaza/courier-service-core'
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
 import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'

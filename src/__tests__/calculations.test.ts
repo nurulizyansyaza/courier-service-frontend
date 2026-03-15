@@ -192,6 +192,54 @@ describe('calculateDeliveryTime', () => {
     const time = parseFloat(parts[3]);
     expect(time).toBeCloseTo(1.42, 2);
   });
+
+  it('should prefer the nearest shipment when combined weights are equal', () => {
+    // Given two packages with the same weight but different distances
+    // PKG1: 100kg, 200km (far)
+    // PKG2: 100kg, 50km  (near)
+    // Vehicle can only carry 100kg, so only one package per trip
+    // Both have weight=100, so tie-break by nearest distance → PKG2 first
+    const input = [
+      '100 2',
+      'PKG1 100 200 OFR001',
+      'PKG2 100 50 OFR001',
+      '1 50 100',
+    ].join('\n');
+
+    const output = calculateDeliveryTime(input);
+    const lines = output.split('\n');
+    const pkg1Time = parseFloat(lines.find(l => l.startsWith('PKG1'))!.split(' ')[3]);
+    const pkg2Time = parseFloat(lines.find(l => l.startsWith('PKG2'))!.split(' ')[3]);
+
+    // PKG2 (nearer) should be delivered first (lower time)
+    expect(pkg2Time).toBeLessThan(pkg1Time);
+  });
+
+  it('should prefer the shipment combination with shortest max distance on weight tie', () => {
+    // Given packages where two combinations have the same total weight
+    // PKG1: 60kg, 30km | PKG2: 40kg, 200km | PKG3: 60kg, 50km | PKG4: 40kg, 60km
+    // Vehicle max: 100kg → possible pairs:
+    //   PKG1+PKG2 = 100kg, maxDist=200km
+    //   PKG1+PKG4 = 100kg, maxDist=60km   ← should be preferred (nearest)
+    //   PKG3+PKG2 = 100kg, maxDist=200km
+    //   PKG3+PKG4 = 100kg, maxDist=60km   ← also good
+    const input = [
+      '100 4',
+      'PKG1 60 30 OFR003',
+      'PKG2 40 200 OFR003',
+      'PKG3 60 50 OFR003',
+      'PKG4 40 60 OFR003',
+      '1 100 100',
+    ].join('\n');
+
+    const output = calculateDeliveryTime(input);
+    const lines = output.split('\n');
+    const pkg2Time = parseFloat(lines.find(l => l.startsWith('PKG2'))!.split(' ')[3]);
+    const pkg4Time = parseFloat(lines.find(l => l.startsWith('PKG4'))!.split(' ')[3]);
+
+    // PKG4 (60km) should be in the first shipment, PKG2 (200km) in a later one
+    expect(pkg4Time).toBeLessThan(pkg2Time);
+  });
 });
 
 // ── parseInput validation (tested through public functions) ────────────

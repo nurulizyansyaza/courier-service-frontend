@@ -9,16 +9,23 @@ function findBestShipment<T extends Package & { discount: number; totalCost: num
   const n = packages.length;
   let bestShipment: T[] = [];
   let bestWeight = 0;
+  let bestMaxDist = Infinity;
 
   function tryShipment(index: number, current: typeof packages, weight: number) {
     if (weight > maxWeight) return;
 
+    const maxDist = current.length > 0
+      ? Math.max(...current.map(p => p.distance))
+      : Infinity;
+
     if (
       weight > bestWeight ||
-      (weight === bestWeight && current.length > bestShipment.length)
+      (weight === bestWeight && current.length > bestShipment.length) ||
+      (weight === bestWeight && current.length === bestShipment.length && maxDist < bestMaxDist)
     ) {
       bestShipment = [...current];
       bestWeight = weight;
+      bestMaxDist = maxDist;
     }
 
     for (let i = index; i < n; i++) {

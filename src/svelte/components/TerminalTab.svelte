@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { TabData, ParsedResult, HistoryEntry } from '../../core/types'
-  import { setOffers } from '../../core/calculations'
+  import { setOffers } from '@nurulizyansyaza/courier-service-core'
   import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
   import { formatOfferDist, getLastClearIndex } from '../../core/utils'
   import { processCommand } from '../../core/terminalCommands'
   import { runCalculation } from '../../core/calculationRunner'
   import { switchFramework } from '../../core/frameworkSwitcher'
   import { getTabState, setTabState } from '../../core/tabStateManager'
+  import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
 
@@ -50,17 +51,14 @@
 
   function handleScroll() {
     if (scrollAreaRef) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
-      shouldAutoScroll = isAtBottom
+      shouldAutoScroll = isScrolledToBottom(scrollAreaRef)
     }
   }
 
   function handleTextareaInput(e: Event) {
     const target = e.target as HTMLTextAreaElement
     currentInput = target.value
-    target.style.height = 'auto'
-    target.style.height = Math.min(target.scrollHeight, 160) + 'px'
+    resizeTextarea(target)
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -87,7 +85,7 @@
 
   function resetTextareaHeight() {
     if (inputRef) {
-      inputRef.style.height = 'auto'
+      resizeTextarea(inputRef)
     }
   }
 
@@ -156,17 +154,6 @@
       isGenerating = false
     }, 350)
   }
-
-  function getResultDiscount(result: ParsedResult): number {
-    return parseFloat(result.discount) || 0
-  }
-
-  function getDiscountPercent(result: ParsedResult): string {
-    const discount = getResultDiscount(result)
-    if (discount <= 0) return '0'
-    const deliveryCost = result.deliveryCost
-    return ((discount / deliveryCost) * 100).toFixed(0)
-  }
 </script>
 <div class="flex-1 flex flex-col overflow-hidden min-h-0 bg-[#0d0118]">
   <!-- Main terminal area with scrollable history -->
@@ -189,16 +176,8 @@
 
         {:else if entry.type === 'result' && entry.parsedResults}
           <div class="ml-4 space-y-3 mt-2">
-            {#each [...entry.parsedResults].sort((a, b) => {
-              if (entry.calculationType !== 'time') return 0;
-              if (a.undeliverable && !b.undeliverable) return 1;
-              if (!a.undeliverable && b.undeliverable) return -1;
-              const roundA = a.deliveryRound ?? Infinity;
-              const roundB = b.deliveryRound ?? Infinity;
-              if (roundA !== roundB) return roundA - roundB;
-              return (b.weight ?? 0) - (a.weight ?? 0);
-            }) as result, i}
-              {@const discount = getResultDiscount(result)}
+            {#each sortDeliveryResults(entry.parsedResults, entry.calculationType) as result, i}
+              {@const discount = parseFloat(result.discount)}
               {@const discountPercent = getDiscountPercent(result)}
               <div class="bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3 {result.undeliverable ? 'border-amber-500/40' : 'border-[#2d1b4e]'}">
                 {#if result.undeliverable && result.undeliverableReason}

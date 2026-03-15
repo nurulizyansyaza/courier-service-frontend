@@ -14,12 +14,13 @@ import {
 import type { TabData, TransitPackage, ParsedResult, HistoryEntry, SessionState } from "../../core/types";
 import {
   setOffers,
-} from "../../core/calculations";
+} from "@nurulizyansyaza/courier-service-core";
 import { processCommand } from "../../core/terminalCommands";
 import { runCalculation } from "../../core/calculationRunner";
 import { switchFramework } from "../../core/frameworkSwitcher";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
+import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
 import { useSession } from "../sessionStore";
 
@@ -63,9 +64,7 @@ export function TerminalTab({
   // Detect if user is scrolling manually
   const handleScroll = () => {
     if (scrollAreaRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-      setShouldAutoScroll(isAtBottom);
+      setShouldAutoScroll(isScrolledToBottom(scrollAreaRef.current));
     }
   };
 
@@ -135,7 +134,7 @@ export function TerminalTab({
 
     if (handleCommand(input)) {
       setCurrentInput("");
-      setTimeout(() => { if (inputRef.current) inputRef.current.style.height = 'auto'; }, 0);
+      setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
       return;
     }
 
@@ -149,7 +148,7 @@ export function TerminalTab({
       onUpdate(result.tabUpdates);
       setIsGenerating(false);
       setCurrentInput("");
-      setTimeout(() => { if (inputRef.current) inputRef.current.style.height = 'auto'; }, 0);
+      setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
     }, 350);
   };
 
@@ -180,16 +179,7 @@ export function TerminalTab({
 
             {entry.type === "result" && entry.parsedResults && (
               <div className="ml-4 space-y-3 mt-2">
-                {[...entry.parsedResults]
-                  .sort((a, b) => {
-                    if (entry.calculationType !== "time") return 0;
-                    if (a.undeliverable && !b.undeliverable) return 1;
-                    if (!a.undeliverable && b.undeliverable) return -1;
-                    const roundA = a.deliveryRound ?? Infinity;
-                    const roundB = b.deliveryRound ?? Infinity;
-                    if (roundA !== roundB) return roundA - roundB;
-                    return (b.weight ?? 0) - (a.weight ?? 0);
-                  })
+                {sortDeliveryResults(entry.parsedResults, entry.calculationType)
                   .map((result, i) => (
                     <ResultCard key={i} result={result} calculationType={entry.calculationType!} />
                   ))}
@@ -320,9 +310,7 @@ export function TerminalTab({
             rows={1}
             style={{ height: 'auto', minHeight: '1.5rem' }}
             onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+              resizeTextarea(e.target as HTMLTextAreaElement);
             }}
           />
         </div>
@@ -349,7 +337,7 @@ function ResultCard({
 }) {
   const discount = parseFloat(result.discount);
   const deliveryCost = result.deliveryCost;
-  const discountPercent = discount > 0 ? ((discount / deliveryCost) * 100).toFixed(0) : 0;
+  const discountPercent = calcDiscountPercent(result);
 
   return (
     <div className={`bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3 ${result.undeliverable ? "border-amber-500/40" : "border-[#2d1b4e]"}`}>

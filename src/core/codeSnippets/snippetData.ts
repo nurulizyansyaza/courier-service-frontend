@@ -1,6 +1,4 @@
-import type { Framework } from './types';
-
-// ── CODE_SNIPPETS ────────────────────────────────────────────────────
+import type { Framework } from '../types';
 
 export const CODE_SNIPPETS: Record<Framework, string> = {
   react: `// ═══════════════════════════════════════════════════════════
@@ -136,11 +134,11 @@ function DeliveryCostCalculator() {
     '  const subtotal = BASE_COST + weightCost + distanceCost;',
     '',
     '  let discountPercent = 0;',
-    '  if (pkg.offerCode === \'OFR001\' && pkg.distance < 200 && pkg.weight >= 70) {',
+    "  if (pkg.offerCode === 'OFR001' && pkg.distance < 200 && pkg.weight >= 70) {",
     '    discountPercent = 10;',
-    '  } else if (pkg.offerCode === \'OFR002\' && pkg.distance >= 100 && pkg.weight >= 100) {',
+    "  } else if (pkg.offerCode === 'OFR002' && pkg.distance >= 100 && pkg.weight >= 100) {",
     '    discountPercent = 7;',
-    '  } else if (pkg.offerCode === \'OFR003\' && pkg.distance >= 50 && pkg.weight >= 10) {',
+    "  } else if (pkg.offerCode === 'OFR003' && pkg.distance >= 50 && pkg.weight >= 10) {",
     '    discountPercent = 5;',
     '  }',
     '',
@@ -162,12 +160,12 @@ function DeliveryCostCalculator() {
     '// ═══════════════════════════════════════════════════════════',
     '',
     '\x3Cscript setup lang="ts">',
-    'import { ref, computed } from \'vue\';',
+    "import { ref, computed } from 'vue';",
     '',
     'const packages = ref<Package[]>([',
-    '  { id: \'PKG1\', weight: 75, distance: 100, offerCode: \'OFR001\' },',
-    '  { id: \'PKG2\', weight: 150, distance: 150, offerCode: \'OFR002\' },',
-    '  { id: \'PKG3\', weight: 15, distance: 60, offerCode: \'OFR003\' },',
+    "  { id: 'PKG1', weight: 75, distance: 100, offerCode: 'OFR001' },",
+    "  { id: 'PKG2', weight: 150, distance: 150, offerCode: 'OFR002' },",
+    "  { id: 'PKG3', weight: 15, distance: 60, offerCode: 'OFR003' },",
     ']);',
     '',
     'const selectedId = ref<string | null>(null);',
@@ -209,8 +207,8 @@ function DeliveryCostCalculator() {
     '        >close\x3C/button>',
     '      </div>',
     '      <div class="mt-2 text-xs text-teal-300/70 space-y-1">',
-    '        <p>Discount: ${{ results.find(r => r.id === selectedId)?.discount }}\x3C/p>',
-    '        <p>Est. time: {{ results.find(r => r.id === selectedId)?.time }}h\x3C/p>',
+    "        <p>Discount: ${{ results.find(r => r.id === selectedId)?.discount }}\\x3C/p>",
+    "        <p>Est. time: {{ results.find(r => r.id === selectedId)?.time }}h\\x3C/p>",
     '      </div>',
     '    </div>',
     '  </div>',
@@ -254,11 +252,11 @@ function DeliveryCostCalculator() {
     '  const subtotal = BASE_COST + weightCost + distanceCost;',
     '',
     '  let discountPercent = 0;',
-    '  if (pkg.offerCode === \'OFR001\' && pkg.distance < 200 && pkg.weight >= 70) {',
+    "  if (pkg.offerCode === 'OFR001' && pkg.distance < 200 && pkg.weight >= 70) {",
     '    discountPercent = 10;',
-    '  } else if (pkg.offerCode === \'OFR002\' && pkg.distance >= 100 && pkg.weight >= 100) {',
+    "  } else if (pkg.offerCode === 'OFR002' && pkg.distance >= 100 && pkg.weight >= 100) {",
     '    discountPercent = 7;',
-    '  } else if (pkg.offerCode === \'OFR003\' && pkg.distance >= 50 && pkg.weight >= 10) {',
+    "  } else if (pkg.offerCode === 'OFR003' && pkg.distance >= 50 && pkg.weight >= 10) {",
     '    discountPercent = 5;',
     '  }',
     '',
@@ -281,9 +279,9 @@ function DeliveryCostCalculator() {
     '',
     '\x3Cscript lang="ts">',
     '  const packages: Package[] = [',
-    '    { id: \'PKG1\', weight: 75, distance: 100, offerCode: \'OFR001\' },',
-    '    { id: \'PKG2\', weight: 150, distance: 150, offerCode: \'OFR002\' },',
-    '    { id: \'PKG3\', weight: 15, distance: 60, offerCode: \'OFR003\' },',
+    "    { id: 'PKG1', weight: 75, distance: 100, offerCode: 'OFR001' },",
+    "    { id: 'PKG2', weight: 150, distance: 150, offerCode: 'OFR002' },",
+    "    { id: 'PKG3', weight: 15, distance: 60, offerCode: 'OFR003' },",
     '  ];',
     '',
     '  let activeId: string | null = null;',
@@ -320,9 +318,9 @@ function DeliveryCostCalculator() {
     '      class="mt-2 bg-orange-950/40 rounded-lg p-3 border border-orange-500/20 text-xs text-orange-300/70 space-y-1"',
     '      transition:slide={{ duration: 150 }}',
     '    >',
-    '      <p><strong class="text-orange-200">{activeResult.id}</strong>\x3C/p>',
-    '      <p>Discount: ${activeResult.discount}\x3C/p>',
-    '      <p>Est. time: {activeResult.time}h\x3C/p>',
+    "      <p><strong class=\"text-orange-200\">{activeResult.id}</strong>\\x3C/p>",
+    "      <p>Discount: ${activeResult.discount}\\x3C/p>",
+    "      <p>Est. time: {activeResult.time}h\\x3C/p>",
     '    </div>',
     '  {/if}',
     '</div>',
@@ -336,8 +334,6 @@ function DeliveryCostCalculator() {
     '\x3C/style>',
   ].join('\n'),
 };
-
-// ── Snippet parsing ──────────────────────────────────────────────────
 
 const UI_LAYER_MARKER = /^[/\s<!\-]*[═]{3,}/;
 
@@ -370,226 +366,3 @@ export const ORIGINAL_EDITABLE: Record<Framework, string> = {
   vue: splitSnippet(CODE_SNIPPETS.vue).editable,
   svelte: splitSnippet(CODE_SNIPPETS.svelte).editable,
 };
-
-// ── Canvas rendering for locked code ─────────────────────────────────
-
-export const TOKEN_COLORS: Record<string, string> = {
-  '': '#d4d4d8',
-  'text-zinc-600': '#52525b',
-  'text-zinc-500': '#71717a',
-  'text-zinc-300': '#d4d4d8',
-  'text-pink-400': '#f472b6',
-  'text-emerald-400': '#34d399',
-  'text-amber-400': '#fbbf24',
-  'text-purple-400': '#c084fc',
-  'text-cyan-400': '#22d3ee',
-  'text-cyan-300': '#67e8f9',
-  'text-violet-400': '#a78bfa',
-};
-
-export const CANVAS_LINE_HEIGHT = 21;
-export const CANVAS_LINE_NUM_WIDTH = 50;
-export const CANVAS_CODE_PAD = 8;
-export const CANVAS_FONT = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
-
-// ── Syntax highlighting ──────────────────────────────────────────────
-
-export interface Token {
-  text: string;
-  className: string;
-}
-
-export function tokenize(line: string, framework: Framework): Token[] {
-  const tokens: Token[] = [];
-  let remaining = line;
-
-  const jsKeywords = /^(import|export|from|const|let|var|function|return|if|else|for|of|in|new|interface|type|class|extends|implements|async|await|default|void)\b/;
-  const jsFlowKeywords = /^(map|filter|reduce|forEach|push|splice|find|findIndex|some|every)\b/;
-  const reactKeywords = /^(useState|useMemo|useEffect|useCallback|useRef)\b/;
-  const vueKeywords = /^(ref|computed|watch|watchEffect|onMounted|defineProps|defineEmits)\b/;
-  const svelteKeywords = /^(\$:)/;
-  const typeKeywords = /^(string|number|boolean|Record|Array|Promise|any)\b/;
-  const controlKeywords = /^(script|template|style|div|span|h2|h3|p)\b/;
-  const jsLiterals = /^(true|false|null|undefined|Math)\b/;
-
-  while (remaining.length > 0) {
-    const wsMatch = remaining.match(/^(\s+)/);
-    if (wsMatch) {
-      tokens.push({ text: wsMatch[1], className: '' });
-      remaining = remaining.slice(wsMatch[1].length);
-      continue;
-    }
-
-    if (remaining.startsWith('//')) {
-      tokens.push({ text: remaining, className: 'text-zinc-600' });
-      break;
-    }
-
-    if (remaining.startsWith('<!--') || remaining.startsWith('{#') || remaining.startsWith('{/') || remaining.startsWith('{:')) {
-      tokens.push({ text: remaining, className: 'text-zinc-600' });
-      break;
-    }
-
-    const svelteMatch = remaining.match(svelteKeywords);
-    if (svelteMatch) {
-      tokens.push({ text: svelteMatch[0], className: 'text-purple-400' });
-      remaining = remaining.slice(svelteMatch[0].length);
-      continue;
-    }
-
-    if (remaining.startsWith('<') && (framework === 'vue' || framework === 'svelte')) {
-      const tagMatch = remaining.match(/^(<\/?[\w-]+)/);
-      if (tagMatch) {
-        tokens.push({ text: tagMatch[0], className: 'text-pink-400' });
-        remaining = remaining.slice(tagMatch[0].length);
-        continue;
-      }
-    }
-
-    if (remaining.startsWith('>') || remaining.startsWith('/>')) {
-      const close = remaining.startsWith('/>') ? '/>' : '>';
-      tokens.push({ text: close, className: 'text-pink-400' });
-      remaining = remaining.slice(close.length);
-      continue;
-    }
-
-    const strMatch = remaining.match(/^('[^']*'|"[^"]*"|`[^`]*`)/);
-    if (strMatch) {
-      tokens.push({ text: strMatch[0], className: 'text-emerald-400' });
-      remaining = remaining.slice(strMatch[0].length);
-      continue;
-    }
-
-    const numMatch = remaining.match(/^(\d+\.?\d*)/);
-    if (numMatch) {
-      tokens.push({ text: numMatch[0], className: 'text-amber-400' });
-      remaining = remaining.slice(numMatch[0].length);
-      continue;
-    }
-
-    const reactMatch = remaining.match(reactKeywords);
-    if (reactMatch) {
-      tokens.push({ text: reactMatch[0], className: 'text-purple-400' });
-      remaining = remaining.slice(reactMatch[0].length);
-      continue;
-    }
-
-    const vueMatch = remaining.match(vueKeywords);
-    if (vueMatch) {
-      tokens.push({ text: vueMatch[0], className: 'text-purple-400' });
-      remaining = remaining.slice(vueMatch[0].length);
-      continue;
-    }
-
-    const typeMatch = remaining.match(typeKeywords);
-    if (typeMatch) {
-      tokens.push({ text: typeMatch[0], className: 'text-cyan-400' });
-      remaining = remaining.slice(typeMatch[0].length);
-      continue;
-    }
-
-    const kwMatch = remaining.match(jsKeywords);
-    if (kwMatch) {
-      tokens.push({ text: kwMatch[0], className: 'text-pink-400' });
-      remaining = remaining.slice(kwMatch[0].length);
-      continue;
-    }
-
-    const litMatch = remaining.match(jsLiterals);
-    if (litMatch) {
-      tokens.push({ text: litMatch[0], className: 'text-amber-400' });
-      remaining = remaining.slice(litMatch[0].length);
-      continue;
-    }
-
-    const methodMatch = remaining.match(jsFlowKeywords);
-    if (methodMatch) {
-      tokens.push({ text: methodMatch[0], className: 'text-violet-400' });
-      remaining = remaining.slice(methodMatch[0].length);
-      continue;
-    }
-
-    const ctrlMatch = remaining.match(controlKeywords);
-    if (ctrlMatch && (framework === 'vue' || framework === 'svelte')) {
-      tokens.push({ text: ctrlMatch[0], className: 'text-pink-400' });
-      remaining = remaining.slice(ctrlMatch[0].length);
-      continue;
-    }
-
-    if (remaining.match(/^[\w-]+(?=\s*:)/) && (framework === 'vue' || framework === 'svelte')) {
-      const cssMatch = remaining.match(/^[\w-]+/);
-      if (cssMatch) {
-        tokens.push({ text: cssMatch[0], className: 'text-cyan-300' });
-        remaining = remaining.slice(cssMatch[0].length);
-        continue;
-      }
-    }
-
-    const opMatch = remaining.match(/^(=>|===|!==|&&|\|\||[=+\-*/<>!?:;,.|&{}()\[\]])/);
-    if (opMatch) {
-      tokens.push({ text: opMatch[0], className: 'text-zinc-500' });
-      remaining = remaining.slice(opMatch[0].length);
-      continue;
-    }
-
-    const idMatch = remaining.match(/^[\w$]+/);
-    if (idMatch) {
-      tokens.push({ text: idMatch[0], className: 'text-zinc-300' });
-      remaining = remaining.slice(idMatch[0].length);
-      continue;
-    }
-
-    tokens.push({ text: remaining[0], className: 'text-zinc-300' });
-    remaining = remaining.slice(1);
-  }
-
-  return tokens;
-}
-
-export function drawLockedCode(
-  canvas: HTMLCanvasElement,
-  lines: string[],
-  framework: Framework,
-) {
-  const container = canvas.parentElement;
-  if (!container) return;
-
-  const dpr = window.devicePixelRatio || 1;
-  const width = container.clientWidth;
-  const height = lines.length * CANVAS_LINE_HEIGHT;
-
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  ctx.scale(dpr, dpr);
-  ctx.fillStyle = '#0d0118';
-  ctx.fillRect(0, 0, width, height);
-
-  lines.forEach((line, i) => {
-    const y = i * CANVAS_LINE_HEIGHT + CANVAS_LINE_HEIGHT * 0.6;
-
-    ctx.font = `10px ${CANVAS_FONT}`;
-    ctx.fillStyle = '#ef444466';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(i + 1), CANVAS_LINE_NUM_WIDTH - 6, y);
-
-    ctx.fillStyle = '#ef444433';
-    ctx.fillRect(CANVAS_LINE_NUM_WIDTH, i * CANVAS_LINE_HEIGHT, 2, CANVAS_LINE_HEIGHT);
-
-    ctx.font = `12px ${CANVAS_FONT}`;
-    ctx.textAlign = 'left';
-    const tks = tokenize(line, framework);
-    let x = CANVAS_LINE_NUM_WIDTH + 2 + CANVAS_CODE_PAD;
-    for (const tk of tks) {
-      ctx.fillStyle = TOKEN_COLORS[tk.className] || '#d4d4d8';
-      ctx.fillText(tk.text, x, y);
-      x += ctx.measureText(tk.text).width;
-    }
-  });
-}

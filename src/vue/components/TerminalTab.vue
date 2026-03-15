@@ -2,13 +2,14 @@
 import { ref, watch, nextTick } from 'vue'
 import { Package, Loader2 } from 'lucide-vue-next'
 import type { TabData, TransitPackage, ParsedResult, HistoryEntry } from '../../core/types'
-import { setOffers } from '../../core/calculations'
+import { setOffers } from '@nurulizyansyaza/courier-service-core'
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
 import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { switchFramework } from '../../core/frameworkSwitcher'
 import { getTabState, setTabState } from '../../core/tabStateManager'
+import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
 import { useSession } from '../sessionStore'
 
 const props = defineProps<{ tab: TabData }>()
@@ -61,9 +62,7 @@ watch(
 
 function handleScroll() {
   if (scrollAreaRef.value) {
-    const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.value
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
-    shouldAutoScroll.value = isAtBottom
+    shouldAutoScroll.value = isScrolledToBottom(scrollAreaRef.value)
   }
 }
 
@@ -132,7 +131,7 @@ function handleExecute() {
 
   if (handleCommand(input)) {
     currentInput.value = ''
-    setTimeout(() => { if (inputRef.value) inputRef.value.style.height = 'auto' }, 0)
+    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
     return
   }
 
@@ -147,7 +146,7 @@ function handleExecute() {
     emit('update', result.tabUpdates)
     isGenerating.value = false
     currentInput.value = ''
-    setTimeout(() => { if (inputRef.value) inputRef.value.style.height = 'auto' }, 0)
+    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
   }, 350)
 }
 
@@ -156,29 +155,6 @@ function handleKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     handleExecute()
   }
-}
-
-function handleTextareaInput(e: Event) {
-  const target = e.target as HTMLTextAreaElement
-  target.style.height = 'auto'
-  target.style.height = Math.min(target.scrollHeight, 160) + 'px'
-}
-
-function sortResults(results: ParsedResult[], calcType?: 'cost' | 'time'): ParsedResult[] {
-  return [...results].sort((a, b) => {
-    if (calcType !== 'time') return 0
-    if (a.undeliverable && !b.undeliverable) return 1
-    if (!a.undeliverable && b.undeliverable) return -1
-    const roundA = a.deliveryRound ?? Infinity
-    const roundB = b.deliveryRound ?? Infinity
-    if (roundA !== roundB) return roundA - roundB
-    return (b.weight ?? 0) - (a.weight ?? 0)
-  })
-}
-
-function getDiscountPercent(result: ParsedResult): string | number {
-  const discount = parseFloat(result.discount)
-  return discount > 0 ? ((discount / result.deliveryCost) * 100).toFixed(0) : 0
 }
 </script>
 
@@ -209,7 +185,7 @@ function getDiscountPercent(result: ParsedResult): string | number {
         <template v-if="entry.type === 'result' && entry.parsedResults">
           <div class="ml-4 space-y-3 mt-2">
             <div
-              v-for="(result, i) in sortResults(entry.parsedResults, entry.calculationType)"
+              v-for="(result, i) in sortDeliveryResults(entry.parsedResults, entry.calculationType)"
               :key="i"
               :class="[
                 'bg-[#1a0b2e]/40 border rounded-lg p-4 sm:p-5 space-y-3',
@@ -631,7 +607,7 @@ function getDiscountPercent(result: ParsedResult): string | number {
           ref="inputRef"
           v-model="currentInput"
           @keydown="handleKeyDown"
-          @input="handleTextareaInput"
+          @input="(e: Event) => resizeTextarea(e.target as HTMLTextAreaElement)"
           :placeholder="
             isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'
           "

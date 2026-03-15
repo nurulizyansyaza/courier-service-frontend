@@ -130,7 +130,7 @@ describe('frameworkSwitcher', () => {
 
       expect(fetchMock).not.toHaveBeenCalled();
       expect(result.success).toBe(false);
-      expect(result.message).toContain('switch-framework.sh');
+      expect(result.message).toContain('npm run use:');
     });
   });
 });

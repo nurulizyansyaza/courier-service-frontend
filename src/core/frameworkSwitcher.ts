@@ -22,7 +22,7 @@ function isDevMode(): boolean {
  *
  * Dev mode:  POST to /__api/switch-framework (Vite dev server plugin).
  * Production: Framework switching is an admin operation done via CLI
- *   (scripts/switch-framework.sh). The frontend cannot change the
+ *   (scripts/switch-framework.js). The frontend cannot change the
  *   CloudFront origin path directly.
  */
 export async function switchFramework(framework: Framework): Promise<SwitchResult> {
@@ -31,7 +31,7 @@ export async function switchFramework(framework: Framework): Promise<SwitchResul
       success: false,
       message:
         `Framework switching is only available in local dev mode. ` +
-        `For deployed environments, run: ./scripts/switch-framework.sh ${framework}`,
+        `For deployed environments, run: npm run use:${framework}`,
     };
   }
 

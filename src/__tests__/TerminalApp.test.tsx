@@ -1,6 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TerminalApp } from '../react/components/TerminalApp';
+import { clearSession } from '../core/sessionPersistence';
+import { clearTabState } from '../core/tabStateManager';
 
 vi.mock('../react/components/TerminalTab', () => ({
   TerminalTab: ({ tab }: any) => (
@@ -12,6 +14,11 @@ vi.mock('lucide-react', () => ({
   Plus: () => <span data-testid="plus-icon">+</span>,
   X: () => <span data-testid="x-icon">×</span>,
 }));
+
+beforeEach(() => {
+  clearSession();
+  clearTabState();
+});
 
 /** Helper: get the tab bar container (the flex row that holds tab items + add button). */
 function getTabBar() {

@@ -46,3 +46,23 @@ export function setTabState(tabId: string, updates: Partial<TabUIState>): void {
 export function clearTabState(): void {
   tabStates.clear();
 }
+
+export function loadTabStates(states: Record<string, TabUIState>): void {
+  tabStates.clear();
+  for (const [id, state] of Object.entries(states)) {
+    tabStates.set(id, {
+      ...createDefaultState(),
+      ...state,
+      isGenerating: false,
+      isConnected: true,
+    });
+  }
+}
+
+export function exportTabStates(): Record<string, TabUIState> {
+  const result: Record<string, TabUIState> = {};
+  for (const [id, state] of tabStates.entries()) {
+    result[id] = { ...state };
+  }
+  return result;
+}

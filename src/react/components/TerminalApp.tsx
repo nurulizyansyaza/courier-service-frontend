@@ -1,15 +1,52 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { TerminalTab } from './TerminalTab';
 import type { TabData } from '../../core/types';
 import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
+import { loadSession, saveSession } from '../../core/sessionPersistence';
+import { loadTabStates, exportTabStates } from '../../core/tabStateManager';
+
+function initFromStorage() {
+  const saved = loadSession();
+  if (saved) {
+    loadTabStates(saved.tabUIStates);
+    return {
+      tabs: saved.tabs,
+      activeTabId: saved.activeTabId,
+      nextTabNumber: saved.nextTabNumber,
+    };
+  }
+  return {
+    tabs: [createEmptyTab('1', 'courier_cli')],
+    activeTabId: '1',
+    nextTabNumber: 2,
+  };
+}
 
 export function TerminalApp() {
-  const [tabs, setTabs] = useState<TabData[]>([
-    createEmptyTab('1', 'courier_cli'),
-  ]);
-  const [activeTabId, setActiveTabId] = useState('1');
-  const nextTabNumber = useRef(2);
+  const [initial] = useState(initFromStorage);
+  const [tabs, setTabs] = useState<TabData[]>(initial.tabs);
+  const [activeTabId, setActiveTabId] = useState(initial.activeTabId);
+  const nextTabNumber = useRef(initial.nextTabNumber);
+
+  const persist = useCallback(() => {
+    saveSession({
+      tabs,
+      activeTabId,
+      nextTabNumber: nextTabNumber.current,
+      tabUIStates: exportTabStates(),
+    });
+  }, [tabs, activeTabId]);
+
+  useEffect(() => {
+    persist();
+  }, [persist]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => persist();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [persist]);
 
   const addNewTab = () => {
     const newId = String(Date.now());

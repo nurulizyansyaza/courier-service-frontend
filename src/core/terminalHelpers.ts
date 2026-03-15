@@ -19,7 +19,7 @@ export function sortDeliveryResults(
 /** Get discount percentage string for a parsed result */
 export function getDiscountPercent(result: ParsedResult): string {
   const discount = parseFloat(result.discount);
-  if (discount <= 0) return '0';
+  if (!Number.isFinite(discount) || discount <= 0 || result.deliveryCost <= 0) return '0';
   return ((discount / result.deliveryCost) * 100).toFixed(0);
 }
 

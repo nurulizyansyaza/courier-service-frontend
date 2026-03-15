@@ -1,6 +1,14 @@
 import { switchFramework, getProductionUrl } from '@/core/frameworkSwitcher';
 import type { Framework } from '@/core/types';
 
+function mockResponse(body: object, ok = true) {
+  return {
+    ok,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: () => Promise.resolve(body),
+  };
+}
+
 describe('frameworkSwitcher', () => {
   describe('getProductionUrl', () => {
     it('returns path for react', () => {
@@ -25,10 +33,9 @@ describe('frameworkSwitcher', () => {
     });
 
     it('makes POST request to /__api/switch-framework', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true, message: 'Switched to vue' }),
-      });
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ success: true, message: 'Switched to vue' }),
+      );
       globalThis.fetch = fetchMock;
 
       await switchFramework('vue');
@@ -41,10 +48,9 @@ describe('frameworkSwitcher', () => {
     });
 
     it('returns success result on 200 response', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true, message: 'Switched to vue' }),
-      });
+      globalThis.fetch = vi.fn().mockResolvedValue(
+        mockResponse({ success: true, message: 'Switched to vue' }),
+      );
 
       const result = await switchFramework('vue');
       expect(result.success).toBe(true);
@@ -52,10 +58,9 @@ describe('frameworkSwitcher', () => {
     });
 
     it('returns error result on non-200 response', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        json: () => Promise.resolve({ success: false, message: 'Switch failed' }),
-      });
+      globalThis.fetch = vi.fn().mockResolvedValue(
+        mockResponse({ success: false, message: 'Switch failed' }, false),
+      );
 
       const result = await switchFramework('vue');
       expect(result.success).toBe(false);
@@ -71,28 +76,61 @@ describe('frameworkSwitcher', () => {
     });
 
     it('returns error when server returns success: false', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: false, message: 'Already using vue' }),
-      });
+      globalThis.fetch = vi.fn().mockResolvedValue(
+        mockResponse({ success: false, message: 'Already using vue' }),
+      );
 
       const result = await switchFramework('vue');
       expect(result.success).toBe(false);
       expect(result.message).toContain('Already using vue');
     });
 
+    it('returns error when response is HTML (non-JSON)', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html' }),
+        json: () => { throw new SyntaxError('Unexpected token <'); },
+      });
+
+      const result = await switchFramework('vue');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('not available');
+    });
+
     it('works for all valid frameworks', async () => {
       const frameworks: Framework[] = ['react', 'vue', 'svelte'];
 
       for (const fw of frameworks) {
-        globalThis.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({ success: true, message: `Switched to ${fw}` }),
-        });
+        globalThis.fetch = vi.fn().mockResolvedValue(
+          mockResponse({ success: true, message: `Switched to ${fw}` }),
+        );
 
         const result = await switchFramework(fw);
         expect(result.success).toBe(true);
       }
+    });
+  });
+
+  describe('switchFramework (production mode)', () => {
+    const origDEV = import.meta.env.DEV;
+
+    beforeEach(() => {
+      import.meta.env.DEV = false;
+    });
+
+    afterEach(() => {
+      import.meta.env.DEV = origDEV;
+    });
+
+    it('returns informative error instead of calling fetch', async () => {
+      const fetchMock = vi.fn();
+      globalThis.fetch = fetchMock;
+
+      const result = await switchFramework('vue');
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('switch-framework.sh');
     });
   });
 });

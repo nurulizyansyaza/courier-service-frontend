@@ -113,24 +113,42 @@ describe('frameworkSwitcher', () => {
 
   describe('switchFramework (production mode)', () => {
     const origDEV = import.meta.env.DEV;
+    const origLocation = window.location.href;
 
     beforeEach(() => {
       import.meta.env.DEV = false;
+      // Mock window.location.href setter
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: { ...window.location, href: origLocation },
+      });
     });
 
     afterEach(() => {
       import.meta.env.DEV = origDEV;
+      Object.defineProperty(window, 'location', {
+        writable: true,
+        value: { href: origLocation },
+      });
     });
 
-    it('returns informative error instead of calling fetch', async () => {
+    it('navigates to framework URL instead of calling fetch', async () => {
       const fetchMock = vi.fn();
       globalThis.fetch = fetchMock;
 
       const result = await switchFramework('vue');
 
       expect(fetchMock).not.toHaveBeenCalled();
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('npm run use:');
+      expect(result.success).toBe(true);
+      expect(window.location.href).toBe('/vue/');
+    });
+
+    it('navigates to correct path for each framework', async () => {
+      for (const fw of ['react', 'vue', 'svelte'] as const) {
+        const result = await switchFramework(fw);
+        expect(result.success).toBe(true);
+        expect(window.location.href).toBe(`/${fw}/`);
+      }
     });
   });
 });

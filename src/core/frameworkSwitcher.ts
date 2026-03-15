@@ -7,7 +7,7 @@ export interface SwitchResult {
 
 /**
  * Returns the production URL path for a given framework.
- * Used for S3/CloudFront deployment where each framework is a separate build.
+ * Each framework build is hosted at /<framework>/ on CloudFront.
  */
 export function getProductionUrl(framework: Framework): string {
   return `/${framework}/`;
@@ -21,18 +21,14 @@ function isDevMode(): boolean {
  * Switches the active frontend framework.
  *
  * Dev mode:  POST to /__api/switch-framework (Vite dev server plugin).
- * Production: Framework switching is an admin operation done via CLI
- *   (scripts/switch-framework.js). The frontend cannot change the
- *   CloudFront origin path directly.
+ * Production: Navigates to /<framework>/ — all three frameworks are
+ *   served simultaneously from S3 via CloudFront.
  */
 export async function switchFramework(framework: Framework): Promise<SwitchResult> {
   if (!isDevMode()) {
-    return {
-      success: false,
-      message:
-        `Framework switching is only available in local dev mode. ` +
-        `For deployed environments, run: npm run use:${framework}`,
-    };
+    const targetUrl = getProductionUrl(framework);
+    window.location.href = targetUrl;
+    return { success: true, message: `Switching to ${framework}...` };
   }
 
   try {

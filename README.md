@@ -19,6 +19,8 @@ src/
     calculations.ts   # Core library wrappers
     calculationRunner.ts  # API-first runner with local fallback
     tabStateManager.ts    # Tab state management
+    sessionPersistence.ts # localStorage save/load
+    frameworkSwitcher.ts  # Framework switching (dev + production)
     types.ts              # Shared TypeScript types
   react/              # React implementation
   vue/                # Vue implementation
@@ -27,19 +29,34 @@ src/
 
 ### Framework Switching
 
-Switch frameworks at runtime via the UI or API:
+**Dev mode** — switch frameworks at runtime via the terminal UI (`use vue`) or API:
 
 ```bash
 # Via Vite dev server API
 curl -X POST http://localhost:5173/__api/switch-framework \
   -H 'Content-Type: application/json' \
   -d '{"framework": "vue"}'
+
+# Or via npm scripts
+npm run use:react
+npm run use:vue
+npm run use:svelte
 ```
 
 Or edit `framework.config.json`:
 ```json
 { "framework": "react" }
 ```
+
+**Production mode** — all three frameworks are deployed simultaneously to S3 at `/react/`, `/vue/`, `/svelte/`. The `use <framework>` command navigates the user's browser to the corresponding URL. Framework switching is **per-user** — each user independently chooses their framework without affecting others.
+
+### Session Persistence
+
+Session state (tabs, input data, command history) is saved to `localStorage` and restored on page reload. This prevents data loss when refreshing the browser or reopening the terminal.
+
+- State is saved on every tab change and before the page unloads
+- Command history is capped at 200 entries per tab
+- Closed tab UI states are pruned to prevent unbounded storage growth
 
 ## API Integration
 

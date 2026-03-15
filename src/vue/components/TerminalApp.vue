@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Plus, X } from 'lucide-vue-next';
 import type { TabData } from '../../core/types';
 import {
@@ -8,13 +8,50 @@ import {
   closeTab as closeTabLogic,
   updateTab as updateTabLogic,
 } from '../../core/tabManager';
+import { loadSession, saveSession } from '../../core/sessionPersistence';
+import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
 import TerminalTab from './TerminalTab.vue';
 
-const tabs = ref<TabData[]>([createEmptyTab('1', 'courier_cli')]);
-const activeTabId = ref<string>('1');
-let nextTabNumber = 2;
+function initFromStorage() {
+  const saved = loadSession();
+  if (saved) {
+    loadTabStates(saved.tabUIStates);
+    return {
+      tabs: saved.tabs,
+      activeTabId: saved.activeTabId,
+      nextTabNumber: saved.nextTabNumber,
+    };
+  }
+  return {
+    tabs: [createEmptyTab('1', 'courier_cli')],
+    activeTabId: '1',
+    nextTabNumber: 2,
+  };
+}
+
+const initial = initFromStorage();
+const tabs = ref<TabData[]>(initial.tabs);
+const activeTabId = ref<string>(initial.activeTabId);
+let nextTabNumber = initial.nextTabNumber;
 
 const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value));
+
+function persist() {
+  const tabIds = tabs.value.map(t => t.id);
+  pruneTabStates(tabIds);
+  saveSession({
+    tabs: tabs.value,
+    activeTabId: activeTabId.value,
+    nextTabNumber,
+    tabUIStates: exportTabStates(),
+  });
+}
+
+watch([tabs, activeTabId], persist, { deep: true });
+
+function handleBeforeUnload() { persist(); }
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
 function addNewTab() {
   const id = String(Date.now());

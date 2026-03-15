@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Plus, X } from 'lucide-svelte';
+  import { onMount, onDestroy } from 'svelte';
   import type { TabData } from '../../core/types';
   import {
     createEmptyTab,
@@ -7,13 +8,56 @@
     closeTab as closeTabLogic,
     updateTab as updateTabLogic,
   } from '../../core/tabManager';
+  import { loadSession, saveSession } from '../../core/sessionPersistence';
+  import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
   import TerminalTab from './TerminalTab.svelte';
 
-  let tabs: TabData[] = $state([createEmptyTab('1', 'courier_cli')]);
-  let activeTabId = $state('1');
-  let nextTabNumber = 2;
+  function initFromStorage() {
+    const saved = loadSession();
+    if (saved) {
+      loadTabStates(saved.tabUIStates);
+      return {
+        tabs: saved.tabs,
+        activeTabId: saved.activeTabId,
+        nextTabNumber: saved.nextTabNumber,
+      };
+    }
+    return {
+      tabs: [createEmptyTab('1', 'courier_cli')],
+      activeTabId: '1',
+      nextTabNumber: 2,
+    };
+  }
+
+  const initial = initFromStorage();
+  let tabs: TabData[] = $state(initial.tabs);
+  let activeTabId = $state(initial.activeTabId);
+  let nextTabNumber = initial.nextTabNumber;
 
   const activeTab = $derived(tabs.find((t) => t.id === activeTabId));
+
+  function persist() {
+    const tabIds = tabs.map(t => t.id);
+    pruneTabStates(tabIds);
+    saveSession({
+      tabs,
+      activeTabId,
+      nextTabNumber,
+      tabUIStates: exportTabStates(),
+    });
+  }
+
+  // Persist on state changes
+  $effect(() => {
+    // Read reactive values to track them
+    void tabs;
+    void activeTabId;
+    persist();
+  });
+
+  function handleBeforeUnload() { persist(); }
+  onMount(() => window.addEventListener('beforeunload', handleBeforeUnload));
+  onDestroy(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
   function addNewTab() {
     const newId = String(Date.now());

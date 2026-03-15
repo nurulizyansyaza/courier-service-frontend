@@ -46,3 +46,33 @@ export function setTabState(tabId: string, updates: Partial<TabUIState>): void {
 export function clearTabState(): void {
   tabStates.clear();
 }
+
+/** Load all tab UI states from a persisted record (used on app init). */
+export function loadTabStates(states: Record<string, TabUIState> | undefined | null): void {
+  tabStates.clear();
+  if (!states || typeof states !== 'object') return;
+  for (const [id, state] of Object.entries(states)) {
+    tabStates.set(id, {
+      ...createDefaultState(),
+      ...state,
+      isGenerating: false,
+    });
+  }
+}
+
+/** Export all tab UI states as a plain record (used for persistence). */
+export function exportTabStates(): Record<string, TabUIState> {
+  const result: Record<string, TabUIState> = {};
+  for (const [id, state] of tabStates.entries()) {
+    result[id] = { ...state };
+  }
+  return result;
+}
+
+/** Remove states for tabs that no longer exist. */
+export function pruneTabStates(activeTabIds: string[]): void {
+  const idSet = new Set(activeTabIds);
+  for (const id of tabStates.keys()) {
+    if (!idSet.has(id)) tabStates.delete(id);
+  }
+}

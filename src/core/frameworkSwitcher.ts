@@ -13,18 +13,39 @@ export function getProductionUrl(framework: Framework): string {
   return `/${framework}/`;
 }
 
+function isDevMode(): boolean {
+  return import.meta.env?.DEV === true;
+}
+
 /**
- * Requests a real framework switch via the Vite dev server plugin.
- * In dev mode: POST to /__api/switch-framework → runs switch-framework.js
- * The server sends an HMR full-reload after success, so the page reloads automatically.
+ * Switches the active frontend framework.
+ *
+ * Dev mode:  POST to /__api/switch-framework (Vite dev server plugin).
+ * Production: Framework switching is an admin operation done via CLI
+ *   (scripts/switch-framework.js). The frontend cannot change the
+ *   CloudFront origin path directly.
  */
 export async function switchFramework(framework: Framework): Promise<SwitchResult> {
+  if (!isDevMode()) {
+    return {
+      success: false,
+      message:
+        `Framework switching is only available in local dev mode. ` +
+        `For deployed environments, run: npm run use:${framework}`,
+    };
+  }
+
   try {
     const response = await fetch('/__api/switch-framework', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ framework }),
     });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return { success: false, message: 'Dev server not available for framework switching' };
+    }
 
     const data = await response.json();
 

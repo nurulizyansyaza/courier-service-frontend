@@ -1,4 +1,4 @@
-import { getTabState, setTabState, clearTabState } from '@/core/tabStateManager';
+import { getTabState, setTabState, clearTabState, loadTabStates, exportTabStates, pruneTabStates } from '@/core/tabStateManager';
 import type { HistoryEntry } from '@/core/types';
 
 describe('tabStateManager', () => {
@@ -92,6 +92,80 @@ describe('tabStateManager', () => {
       expect(getTabState('tab-1').currentInput).toBe('tab1');
       expect(getTabState('tab-2').isConnected).toBe(true);
       expect(getTabState('tab-2').currentInput).toBe('tab2');
+    });
+  });
+
+  describe('loadTabStates / exportTabStates', () => {
+    it('round-trips state through export and load', () => {
+      setTabState('tab-1', { currentInput: 'hello', isConnected: false });
+      setTabState('tab-2', { currentInput: 'world', framework: 'vue' });
+
+      const exported = exportTabStates();
+      clearTabState();
+
+      loadTabStates(exported);
+
+      expect(getTabState('tab-1').currentInput).toBe('hello');
+      expect(getTabState('tab-1').isConnected).toBe(false);
+      expect(getTabState('tab-2').currentInput).toBe('world');
+      expect(getTabState('tab-2').framework).toBe('vue');
+    });
+
+    it('resets isGenerating to false on load', () => {
+      setTabState('tab-1', { isGenerating: true });
+      const exported = exportTabStates();
+      clearTabState();
+
+      loadTabStates(exported);
+
+      expect(getTabState('tab-1').isGenerating).toBe(false);
+    });
+
+    it('handles null/undefined states gracefully', () => {
+      loadTabStates(null);
+      expect(exportTabStates()).toEqual({});
+
+      loadTabStates(undefined);
+      expect(exportTabStates()).toEqual({});
+    });
+
+    it('fills missing fields with defaults', () => {
+      const partial = { 'tab-1': { currentInput: 'test' } } as any;
+      loadTabStates(partial);
+
+      const state = getTabState('tab-1');
+      expect(state.currentInput).toBe('test');
+      expect(state.showWelcome).toBe(true);
+      expect(state.shouldAutoScroll).toBe(true);
+    });
+  });
+
+  describe('pruneTabStates', () => {
+    it('removes states for closed tabs', () => {
+      setTabState('tab-1', { currentInput: 'keep' });
+      setTabState('tab-2', { currentInput: 'remove' });
+      setTabState('tab-3', { currentInput: 'keep too' });
+
+      pruneTabStates(['tab-1', 'tab-3']);
+
+      const exported = exportTabStates();
+      expect(Object.keys(exported)).toEqual(['tab-1', 'tab-3']);
+      expect(exported['tab-2']).toBeUndefined();
+    });
+
+    it('keeps all states when all tabs are active', () => {
+      setTabState('tab-1', { currentInput: 'a' });
+      setTabState('tab-2', { currentInput: 'b' });
+
+      pruneTabStates(['tab-1', 'tab-2']);
+
+      expect(Object.keys(exportTabStates())).toHaveLength(2);
+    });
+
+    it('handles empty active tabs list', () => {
+      setTabState('tab-1', { currentInput: 'a' });
+      pruneTabStates([]);
+      expect(Object.keys(exportTabStates())).toHaveLength(0);
     });
   });
 });

@@ -1,6 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TerminalApp } from '../react/components/TerminalApp';
+import { clearSession } from '../core/sessionPersistence';
+import { clearTabState } from '../core/tabStateManager';
 
 vi.mock('../react/components/TerminalTab', () => ({
   TerminalTab: ({ tab }: any) => (
@@ -12,6 +14,11 @@ vi.mock('lucide-react', () => ({
   Plus: () => <span data-testid="plus-icon">+</span>,
   X: () => <span data-testid="x-icon">×</span>,
 }));
+
+beforeEach(() => {
+  clearSession();
+  clearTabState();
+});
 
 /** Helper: get the tab bar container (the flex row that holds tab items + add button). */
 function getTabBar() {
@@ -174,6 +181,38 @@ describe('TerminalApp', () => {
       // Inactive tab (courier_cli) has inactive styling
       expect(cliTab).toHaveClass('bg-[#1a0b2e]');
       expect(cliTab).toHaveClass('text-zinc-400');
+    });
+  });
+
+  describe('Session Persistence', () => {
+    it('restores tabs from localStorage on mount', () => {
+      const stored = {
+        tabs: [
+          { id: 'a', title: 'restored_tab', calculationType: 'cost', input: '', output: '', error: '', hasExecuted: false, transitPackages: [], executionTransitSnapshot: [], renamedPackages: [], isGenerating: false },
+        ],
+        activeTabId: 'a',
+        nextTabNumber: 5,
+        tabUIStates: {},
+      };
+      localStorage.setItem('courier-cli-session', JSON.stringify(stored));
+
+      render(<TerminalApp />);
+
+      const tabBar = getTabBar();
+      expect(within(tabBar).getByText('restored_tab')).toBeTruthy();
+    });
+
+    it('persists new tabs to localStorage', async () => {
+      const user = userEvent.setup();
+      render(<TerminalApp />);
+
+      await user.click(screen.getByTitle('New tab'));
+
+      const raw = localStorage.getItem('courier-cli-session');
+      expect(raw).toBeTruthy();
+      const saved = JSON.parse(raw!);
+      expect(saved.tabs).toHaveLength(2);
+      expect(saved.tabs[1].title).toBe('courier_2');
     });
   });
 });

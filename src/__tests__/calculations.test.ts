@@ -6,8 +6,8 @@ import {
   calculateDeliveryTimeWithTransit,
   parseOutput,
   getOfferCodeFromDiscount,
-} from '@/core/calculations';
-import type { CalcOfferCriteria, TransitPackageInput } from '@/core/types';
+} from '@nurulizyansyaza/courier-service-core';
+import type { CalcOfferCriteria, TransitPackageInput } from '@nurulizyansyaza/courier-service-core';
 
 // ── Deep-clone helper to prevent state pollution between tests ─────────
 

@@ -3,7 +3,7 @@ import {
   calculateDeliveryCost,
   calculateDeliveryTimeWithTransit,
   parseOutput,
-} from './calculations';
+} from '@nurulizyansyaza/courier-service-core';
 
 export interface CalculationSuccess {
   success: true;

@@ -14,7 +14,7 @@ import {
 import type { TabData, TransitPackage, ParsedResult, HistoryEntry, SessionState } from "../../core/types";
 import {
   setOffers,
-} from "../../core/calculations";
+} from "@nurulizyansyaza/courier-service-core";
 import { processCommand } from "../../core/terminalCommands";
 import { runCalculation } from "../../core/calculationRunner";
 import { switchFramework } from "../../core/frameworkSwitcher";

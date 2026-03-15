@@ -9,7 +9,7 @@
     updateTab as updateTabLogic,
   } from '../../core/tabManager';
   import { loadSession, saveSession } from '../../core/sessionPersistence';
-  import { loadTabStates, exportTabStates } from '../../core/tabStateManager';
+  import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
   import TerminalTab from './TerminalTab.svelte';
 
   function initFromStorage() {
@@ -37,6 +37,8 @@
   const activeTab = $derived(tabs.find((t) => t.id === activeTabId));
 
   function persist() {
+    const tabIds = tabs.map(t => t.id);
+    pruneTabStates(tabIds);
     saveSession({
       tabs,
       activeTabId,

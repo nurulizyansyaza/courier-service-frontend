@@ -9,7 +9,7 @@ import {
   updateTab as updateTabLogic,
 } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
-import { loadTabStates, exportTabStates } from '../../core/tabStateManager';
+import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
 import TerminalTab from './TerminalTab.vue';
 
 function initFromStorage() {
@@ -37,6 +37,8 @@ let nextTabNumber = initial.nextTabNumber;
 const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value));
 
 function persist() {
+  const tabIds = tabs.value.map(t => t.id);
+  pruneTabStates(tabIds);
   saveSession({
     tabs: tabs.value,
     activeTabId: activeTabId.value,

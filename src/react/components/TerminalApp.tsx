@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { TerminalTab } from './TerminalTab';
 import type { TabData } from '../../core/types';
 import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
-import { loadTabStates, exportTabStates } from '../../core/tabStateManager';
+import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
 
 function initFromStorage() {
   const saved = loadSession();
@@ -29,7 +29,16 @@ export function TerminalApp() {
   const [activeTabId, setActiveTabId] = useState(initial.activeTabId);
   const nextTabNumber = useRef(initial.nextTabNumber);
 
-  const persist = useCallback(() => {
+  // Refs for stable beforeunload handler
+  const tabsRef = useRef(tabs);
+  const activeTabIdRef = useRef(activeTabId);
+  tabsRef.current = tabs;
+  activeTabIdRef.current = activeTabId;
+
+  // Persist on state changes
+  useEffect(() => {
+    const tabIds = tabs.map(t => t.id);
+    pruneTabStates(tabIds);
     saveSession({
       tabs,
       activeTabId,
@@ -38,15 +47,22 @@ export function TerminalApp() {
     });
   }, [tabs, activeTabId]);
 
+  // Persist before page unload (registered once)
   useEffect(() => {
-    persist();
-  }, [persist]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => persist();
+    const handleBeforeUnload = () => {
+      const currentTabs = tabsRef.current;
+      const tabIds = currentTabs.map(t => t.id);
+      pruneTabStates(tabIds);
+      saveSession({
+        tabs: currentTabs,
+        activeTabId: activeTabIdRef.current,
+        nextTabNumber: nextTabNumber.current,
+        tabUIStates: exportTabStates(),
+      });
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [persist]);
+  }, []);
 
   const addNewTab = () => {
     const newId = String(Date.now());

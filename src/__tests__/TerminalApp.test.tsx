@@ -183,4 +183,36 @@ describe('TerminalApp', () => {
       expect(cliTab).toHaveClass('text-zinc-400');
     });
   });
+
+  describe('Session Persistence', () => {
+    it('restores tabs from localStorage on mount', () => {
+      const stored = {
+        tabs: [
+          { id: 'a', title: 'restored_tab', calculationType: 'cost', input: '', output: '', error: '', hasExecuted: false, transitPackages: [], executionTransitSnapshot: [], renamedPackages: [], isGenerating: false },
+        ],
+        activeTabId: 'a',
+        nextTabNumber: 5,
+        tabUIStates: {},
+      };
+      localStorage.setItem('courier-cli-session', JSON.stringify(stored));
+
+      render(<TerminalApp />);
+
+      const tabBar = getTabBar();
+      expect(within(tabBar).getByText('restored_tab')).toBeTruthy();
+    });
+
+    it('persists new tabs to localStorage', async () => {
+      const user = userEvent.setup();
+      render(<TerminalApp />);
+
+      await user.click(screen.getByTitle('New tab'));
+
+      const raw = localStorage.getItem('courier-cli-session');
+      expect(raw).toBeTruthy();
+      const saved = JSON.parse(raw!);
+      expect(saved.tabs).toHaveLength(2);
+      expect(saved.tabs[1].title).toBe('courier_2');
+    });
+  });
 });

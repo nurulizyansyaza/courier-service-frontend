@@ -28,10 +28,18 @@ export function saveSession(session: PersistedSession): void {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
-    // quota exceeded — clear and retry once
+    // quota exceeded — clear and retry with trimmed payload
     try {
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...session,
+        tabUIStates: Object.fromEntries(
+          Object.entries(session.tabUIStates).map(([id, state]) => [
+            id,
+            { ...state, history: state.history.slice(-MAX_HISTORY_PER_TAB) },
+          ]),
+        ),
+      }));
     } catch {
       // still failing — silently degrade
     }
@@ -43,11 +51,15 @@ export function loadSession(): PersistedSession | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as PersistedSession;
-    // Basic validation
     if (!Array.isArray(data.tabs) || !data.activeTabId || data.tabs.length === 0) {
       return null;
     }
-    return data;
+    return {
+      tabs: data.tabs,
+      activeTabId: data.activeTabId,
+      nextTabNumber: typeof data.nextTabNumber === 'number' ? data.nextTabNumber : data.tabs.length + 1,
+      tabUIStates: data.tabUIStates && typeof data.tabUIStates === 'object' ? data.tabUIStates : {},
+    };
   } catch {
     return null;
   }

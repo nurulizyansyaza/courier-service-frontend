@@ -29,6 +29,12 @@ export default defineConfig(async () => {
       rollupOptions: {
         input: path.resolve(__dirname, 'index.html'),
       },
+      commonjsOptions: {
+        include: [/courier-service-core/, /node_modules/],
+      },
+    },
+    optimizeDeps: {
+      include: ['@nurulizyansyaza/courier-service-core'],
     },
     define: {
       __FRAMEWORK__: JSON.stringify(framework),

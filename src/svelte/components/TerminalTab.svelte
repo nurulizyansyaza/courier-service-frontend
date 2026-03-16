@@ -306,7 +306,11 @@
           <div class="text-cyan-400 text-xs">{entry.content}</div>
 
         {:else if entry.type === 'error'}
-          <div class="ml-4 text-red-400 text-xs">{entry.content}</div>
+          <div class="ml-4 space-y-2">
+            {#each entry.content.split('\n').filter(Boolean) as line}
+              <div class="text-red-400 text-xs">• {line}</div>
+            {/each}
+          </div>
 
         {:else if entry.type === 'info'}
           <div class="ml-4 text-cyan-400 text-xs">{entry.content}</div>

@@ -406,7 +406,9 @@ function handleKeyDown(e: KeyboardEvent) {
 
         <!-- Error -->
         <template v-if="entry.type === 'error'">
-          <div class="ml-4 text-red-400 text-xs">{{ entry.content }}</div>
+          <div class="ml-4 space-y-2">
+            <div v-for="(line, i) in entry.content.split('\n').filter(Boolean)" :key="i" class="text-red-400 text-xs">• {{ line }}</div>
+          </div>
         </template>
 
         <!-- Info -->

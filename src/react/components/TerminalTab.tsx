@@ -203,7 +203,11 @@ export function TerminalTab({
             )}
 
             {entry.type === "error" && (
-              <div className="ml-4 text-red-400 text-xs">{entry.content}</div>
+              <div className="ml-4 space-y-2">
+                {entry.content.split('\n').filter(Boolean).map((line, i) => (
+                  <div key={i} className="text-red-400 text-xs">• {line}</div>
+                ))}
+              </div>
             )}
 
             {entry.type === "info" && (

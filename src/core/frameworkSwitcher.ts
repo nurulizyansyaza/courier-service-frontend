@@ -1,4 +1,5 @@
 import type { Framework } from './types';
+import { buildPath } from './urlHelpers';
 
 export interface SwitchResult {
   success: boolean;
@@ -6,11 +7,12 @@ export interface SwitchResult {
 }
 
 /**
- * Returns the production URL path for a given framework.
- * Each framework build is hosted at /<framework>/ on CloudFront.
+ * Returns the production URL path for a given framework and optional tab ID.
+ * Format: `/<framework>/<tabId>` — each framework build is hosted at
+ * `/<framework>/` on CloudFront.
  */
-export function getProductionUrl(framework: Framework): string {
-  return `/${framework}/`;
+export function getProductionUrl(framework: Framework, tabId?: string): string {
+  return buildPath(framework, tabId);
 }
 
 function isDevMode(): boolean {
@@ -20,15 +22,28 @@ function isDevMode(): boolean {
 /**
  * Switches the active frontend framework.
  *
- * Dev mode:  POST to /__api/switch-framework (Vite dev server plugin).
- * Production: Navigates to /<framework>/ — all three frameworks are
- *   served simultaneously from S3 via CloudFront.
+ * Dev mode:  Updates URL via replaceState, then POST to
+ *            `/__api/switch-framework` (Vite dev server plugin).
+ * Production: Navigates to `/<framework>/<tabId>` — all three frameworks
+ *             are served simultaneously from S3 via CloudFront.
+ *
+ * @param tabId  The active terminal tab ID, embedded in the URL so the
+ *               correct tab is restored after the page reloads.
  */
-export async function switchFramework(framework: Framework): Promise<SwitchResult> {
+export async function switchFramework(framework: Framework, tabId?: string): Promise<SwitchResult> {
   if (!isDevMode()) {
-    const targetUrl = getProductionUrl(framework);
+    const targetUrl = getProductionUrl(framework, tabId);
     window.location.href = targetUrl;
     return { success: true, message: `Switching to ${framework}...` };
+  }
+
+  // Dev: set URL before the server restart so the reload lands on the
+  // correct /<framework>/<tabId> path.
+  try {
+    const path = buildPath(framework, tabId);
+    window.history.replaceState(null, '', path);
+  } catch {
+    // best-effort
   }
 
   try {

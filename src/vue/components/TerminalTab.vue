@@ -96,9 +96,10 @@ function handleCommand(cmd: string): boolean {
       const previousFramework = framework.value
       action.historyEntries.forEach(e => addToHistory(e))
       framework.value = action.framework
-      // Update tab state synchronously so beforeunload persists the correct framework
+      // Update tab state synchronously so beforeunload persists the correct
+      // per-tab framework before page navigation
       setTabState(props.tab.id, { framework: action.framework })
-      switchFramework(action.framework).then(result => {
+      switchFramework(action.framework, props.tab.id).then(result => {
         if (!result.success) {
           framework.value = previousFramework
           setTabState(props.tab.id, { framework: previousFramework })

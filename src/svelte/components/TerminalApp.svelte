@@ -10,15 +10,22 @@
   } from '../../core/tabManager';
   import { loadSession, saveSession } from '../../core/sessionPersistence';
   import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
+  import { parseUrl, updateUrl } from '../../core/urlHelpers';
   import TerminalTab from './TerminalTab.svelte';
 
   function initFromStorage() {
     const saved = loadSession();
+    const { tabId: urlTabId } = parseUrl();
+
     if (saved) {
       loadTabStates(saved.tabUIStates);
+      const activeTabId =
+        urlTabId && saved.tabs.some(t => t.id === urlTabId)
+          ? urlTabId
+          : saved.activeTabId;
       return {
         tabs: saved.tabs,
-        activeTabId: saved.activeTabId,
+        activeTabId,
         nextTabNumber: saved.nextTabNumber,
       };
     }
@@ -53,6 +60,11 @@
     void tabs;
     void activeTabId;
     persist();
+  });
+
+  // Sync URL with active tab
+  $effect(() => {
+    updateUrl(activeTabId);
   });
 
   function handleBeforeUnload() { persist(); }

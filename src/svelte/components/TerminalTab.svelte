@@ -113,9 +113,10 @@
         const previousFramework = framework
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
         framework = action.framework
-        // Update tab state synchronously so beforeunload persists the correct framework
+        // Update tab state synchronously so beforeunload persists the correct
+        // per-tab framework before page navigation
         setTabState(tab.id, { framework: action.framework })
-        switchFramework(action.framework).then(result => {
+        switchFramework(action.framework, tab.id).then(result => {
           if (!result.success) {
             framework = previousFramework
             setTabState(tab.id, { framework: previousFramework })

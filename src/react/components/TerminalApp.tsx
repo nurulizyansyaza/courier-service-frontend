@@ -5,14 +5,22 @@ import type { TabData } from '../../core/types';
 import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
 import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
+import { parseUrl, updateUrl } from '../../core/urlHelpers';
 
 function initFromStorage() {
   const saved = loadSession();
+  const { tabId: urlTabId } = parseUrl();
+
   if (saved) {
     loadTabStates(saved.tabUIStates);
+    // If the URL contains a valid tab ID, activate that tab
+    const activeTabId =
+      urlTabId && saved.tabs.some(t => t.id === urlTabId)
+        ? urlTabId
+        : saved.activeTabId;
     return {
       tabs: saved.tabs,
-      activeTabId: saved.activeTabId,
+      activeTabId,
       nextTabNumber: saved.nextTabNumber,
     };
   }
@@ -34,6 +42,11 @@ export function TerminalApp() {
   const activeTabIdRef = useRef(activeTabId);
   tabsRef.current = tabs;
   activeTabIdRef.current = activeTabId;
+
+  // Sync URL with active tab on mount and whenever activeTabId changes
+  useEffect(() => {
+    updateUrl(activeTabId);
+  }, [activeTabId]);
 
   // Persist on state changes
   useEffect(() => {

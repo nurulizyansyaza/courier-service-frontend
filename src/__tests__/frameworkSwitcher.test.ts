@@ -22,13 +22,24 @@ describe('frameworkSwitcher', () => {
     it('returns path for svelte', () => {
       expect(getProductionUrl('svelte')).toBe('/svelte/');
     });
+
+    it('includes tabId when provided', () => {
+      expect(getProductionUrl('react', 'tab-1')).toBe('/react/tab-1');
+      expect(getProductionUrl('vue', '123')).toBe('/vue/123');
+    });
   });
 
   describe('switchFramework (dev mode)', () => {
     const originalFetch = globalThis.fetch;
+    let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      replaceStateSpy = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+    });
 
     afterEach(() => {
       globalThis.fetch = originalFetch;
+      replaceStateSpy.mockRestore();
       vi.restoreAllMocks();
     });
 
@@ -149,6 +160,12 @@ describe('frameworkSwitcher', () => {
         expect(result.success).toBe(true);
         expect(window.location.href).toBe(`/${fw}/`);
       }
+    });
+
+    it('includes tabId in navigation URL when provided', async () => {
+      const result = await switchFramework('vue', 'tab-42');
+      expect(result.success).toBe(true);
+      expect(window.location.href).toBe('/vue/tab-42');
     });
   });
 });

@@ -109,14 +109,21 @@
       case 'invalid-change':
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
         break
-      case 'switch-framework':
+      case 'switch-framework': {
+        const previousFramework = framework
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
+        framework = action.framework
+        // Update tab state synchronously so beforeunload persists the correct framework
+        setTabState(tab.id, { framework: action.framework })
         switchFramework(action.framework).then(result => {
           if (!result.success) {
+            framework = previousFramework
+            setTabState(tab.id, { framework: previousFramework })
             history = [...history, { type: 'error' as const, content: `✗ Switch failed: ${result.message}`, timestamp: Date.now() }]
           }
         })
         break
+      }
       case 'change-mode':
         onupdate({ calculationType: action.mode })
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]

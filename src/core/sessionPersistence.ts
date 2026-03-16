@@ -12,7 +12,9 @@ export interface PersistedSession {
 }
 
 /**
- * Save session state to localStorage.
+ * Save session state to sessionStorage.
+ * Uses sessionStorage so data persists across same-tab navigations (framework
+ * switches) but clears when the browser or tab is closed.
  * Caps history entries per tab to prevent exceeding the ~5 MB quota.
  */
 export function saveSession(session: PersistedSession): void {
@@ -26,12 +28,12 @@ export function saveSession(session: PersistedSession): void {
         ]),
       ),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
     // quota exceeded — clear and retry with trimmed payload
     try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         ...session,
         tabUIStates: Object.fromEntries(
           Object.entries(session.tabUIStates).map(([id, state]) => [
@@ -48,7 +50,7 @@ export function saveSession(session: PersistedSession): void {
 
 export function loadSession(): PersistedSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as PersistedSession;
     if (!Array.isArray(data.tabs) || !data.activeTabId || data.tabs.length === 0) {
@@ -67,7 +69,7 @@ export function loadSession(): PersistedSession | null {
 
 export function clearSession(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }

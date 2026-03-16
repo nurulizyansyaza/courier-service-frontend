@@ -185,7 +185,7 @@ describe('TerminalApp', () => {
   });
 
   describe('Session Persistence', () => {
-    it('restores tabs from localStorage on mount', () => {
+    it('restores tabs from sessionStorage on mount', () => {
       const stored = {
         tabs: [
           { id: 'a', title: 'restored_tab', calculationType: 'cost', input: '', output: '', error: '', hasExecuted: false, transitPackages: [], executionTransitSnapshot: [], renamedPackages: [], isGenerating: false },
@@ -194,7 +194,7 @@ describe('TerminalApp', () => {
         nextTabNumber: 5,
         tabUIStates: {},
       };
-      localStorage.setItem('courier-cli-session', JSON.stringify(stored));
+      sessionStorage.setItem('courier-cli-session', JSON.stringify(stored));
 
       render(<TerminalApp />);
 
@@ -202,13 +202,13 @@ describe('TerminalApp', () => {
       expect(within(tabBar).getByText('restored_tab')).toBeTruthy();
     });
 
-    it('persists new tabs to localStorage', async () => {
+    it('persists new tabs to sessionStorage', async () => {
       const user = userEvent.setup();
       render(<TerminalApp />);
 
       await user.click(screen.getByTitle('New tab'));
 
-      const raw = localStorage.getItem('courier-cli-session');
+      const raw = sessionStorage.getItem('courier-cli-session');
       expect(raw).toBeTruthy();
       const saved = JSON.parse(raw!);
       expect(saved.tabs).toHaveLength(2);

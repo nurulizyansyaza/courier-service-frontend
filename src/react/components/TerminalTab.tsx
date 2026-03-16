@@ -95,14 +95,21 @@ export function TerminalTab({
       case 'invalid-change':
         action.historyEntries.forEach(e => addToHistory(e));
         break;
-      case 'switch-framework':
+      case 'switch-framework': {
+        const previousFramework = framework;
         action.historyEntries.forEach(e => addToHistory(e));
+        setFramework(action.framework);
+        // Update tab state synchronously so beforeunload persists the correct framework
+        setTabState(tab.id, { framework: action.framework });
         switchFramework(action.framework).then(result => {
           if (!result.success) {
+            setFramework(previousFramework);
+            setTabState(tab.id, { framework: previousFramework });
             addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` });
           }
         });
         break;
+      }
       case 'change-mode':
         onUpdate({ calculationType: action.mode });
         action.historyEntries.forEach(e => addToHistory(e));

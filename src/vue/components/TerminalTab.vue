@@ -92,14 +92,21 @@ function handleCommand(cmd: string): boolean {
     case 'invalid-change':
       action.historyEntries.forEach(e => addToHistory(e))
       break
-    case 'switch-framework':
+    case 'switch-framework': {
+      const previousFramework = framework.value
       action.historyEntries.forEach(e => addToHistory(e))
+      framework.value = action.framework
+      // Update tab state synchronously so beforeunload persists the correct framework
+      setTabState(props.tab.id, { framework: action.framework })
       switchFramework(action.framework).then(result => {
         if (!result.success) {
+          framework.value = previousFramework
+          setTabState(props.tab.id, { framework: previousFramework })
           addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` })
         }
       })
       break
+    }
     case 'change-mode':
       emit('update', { calculationType: action.mode })
       action.historyEntries.forEach(e => addToHistory(e))

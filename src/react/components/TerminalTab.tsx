@@ -335,15 +335,21 @@ export function TerminalTab({
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 const prev = cmdHistory.navigateUp(currentInput);
-                if (prev !== null) setCurrentInput(prev);
+                if (prev !== null) {
+                  setCurrentInput(prev);
+                  setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+                }
               } else if (e.key === "ArrowDown") {
                 e.preventDefault();
                 const next = cmdHistory.navigateDown();
-                if (next !== null) setCurrentInput(next);
+                if (next !== null) {
+                  setCurrentInput(next);
+                  setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+                }
               }
             }}
             placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}
-            className="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto leading-tight pt-1"
+            className="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto scrollbar-hide leading-tight pt-1"
             spellCheck={false}
             autoFocus
             rows={1}

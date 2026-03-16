@@ -164,11 +164,17 @@ function handleKeyDown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
     const prev = cmdHistory.navigateUp(currentInput.value)
-    if (prev !== null) currentInput.value = prev
+    if (prev !== null) {
+      currentInput.value = prev
+      setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
+    }
   } else if (e.key === 'ArrowDown') {
     e.preventDefault()
     const next = cmdHistory.navigateDown()
-    if (next !== null) currentInput.value = next
+    if (next !== null) {
+      currentInput.value = next
+      setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
+    }
   }
 }
 </script>
@@ -681,7 +687,7 @@ function handleKeyDown(e: KeyboardEvent) {
           :placeholder="
             isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'
           "
-          class="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto leading-tight pt-1"
+          class="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto scrollbar-hide leading-tight pt-1"
           spellcheck="false"
           autofocus
           rows="1"

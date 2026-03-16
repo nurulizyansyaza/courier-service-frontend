@@ -70,11 +70,17 @@
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const prev = cmdHistory.navigateUp(currentInput)
-      if (prev !== null) currentInput = prev
+      if (prev !== null) {
+        currentInput = prev
+        setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
+      }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = cmdHistory.navigateDown()
-      if (next !== null) currentInput = next
+      if (next !== null) {
+        currentInput = next
+        setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
+      }
     }
   }
 
@@ -495,7 +501,7 @@
         oninput={handleTextareaInput}
         onkeydown={handleKeyDown}
         placeholder={isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'}
-        class="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto leading-tight pt-1"
+        class="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto scrollbar-hide leading-tight pt-1"
         spellcheck="false"
         rows="1"
         style="height: auto; min-height: 1.5rem"

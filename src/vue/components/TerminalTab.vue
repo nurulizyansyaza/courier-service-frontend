@@ -480,6 +480,22 @@ function handleKeyDown(e: KeyboardEvent) {
                   <span class="text-zinc-500">no_of_vehicles max_speed max_weight</span>
                 </div>
               </div>
+              <div class="mt-2">
+                <div class="text-amber-400/70 mb-1 text-xs sm:text-sm">
+                  {{ tab.calculationType === 'time' ? 'Example (Time):' : 'Example (Cost):' }}
+                </div>
+                <div
+                  class="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5"
+                >
+                  <div>Line 1: <span class="text-zinc-500">100 3</span></div>
+                  <div>Line 2: <span class="text-zinc-500">pkg1 50 70 ofr001</span></div>
+                  <div>Line 3: <span class="text-zinc-500">pkg2 75 70 ofr003</span></div>
+                  <div>Line 4: <span class="text-zinc-500">pkg3 100 200 ofr002</span></div>
+                  <div v-if="tab.calculationType === 'time'">
+                    Line 5: <span class="text-zinc-500">2 70 250</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>

@@ -4,8 +4,10 @@ import { TerminalTab } from './TerminalTab';
 import type { TabData } from '../../core/types';
 import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
-import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
+import { loadTabStates, exportTabStates, pruneTabStates, getTabState, setTabState } from '../../core/tabStateManager';
 import { parseUrl, updateUrl } from '../../core/urlHelpers';
+import { switchFramework } from '../../core/frameworkSwitcher';
+import { DEFAULT_FRAMEWORK } from '../../core/constants';
 
 function initFromStorage() {
   const saved = loadSession();
@@ -22,12 +24,27 @@ function initFromStorage() {
       tabs: saved.tabs,
       activeTabId,
       nextTabNumber: saved.nextTabNumber,
+      hadSession: true,
     };
   }
-  return {
-    tabs: [createEmptyTab('1', 'courier_cli')],
+
+  // Fresh session (browser was closed) — create default state and pre-save
+  // so the redirected page finds an active session.
+  const defaultTabs = [createEmptyTab('1', 'courier_cli')];
+  loadTabStates(null);
+  setTabState('1', { framework: DEFAULT_FRAMEWORK });
+  saveSession({
+    tabs: defaultTabs,
     activeTabId: '1',
     nextTabNumber: 2,
+    tabUIStates: exportTabStates(),
+  });
+
+  return {
+    tabs: defaultTabs,
+    activeTabId: '1',
+    nextTabNumber: 2,
+    hadSession: false,
   };
 }
 
@@ -36,6 +53,7 @@ export function TerminalApp() {
   const [tabs, setTabs] = useState<TabData[]>(initial.tabs);
   const [activeTabId, setActiveTabId] = useState(initial.activeTabId);
   const nextTabNumber = useRef(initial.nextTabNumber);
+  const hadSession = useRef(initial.hadSession);
 
   // Refs for stable beforeunload handler
   const tabsRef = useRef(tabs);
@@ -47,6 +65,17 @@ export function TerminalApp() {
   useEffect(() => {
     updateUrl(getTabState(activeTabId).framework, activeTabId);
   }, [activeTabId]);
+
+  // On fresh session (browser was closed/reopened), redirect to default
+  // framework if current build/URL differs from the default.
+  useEffect(() => {
+    if (hadSession.current) return;
+    const { framework: urlFramework } = parseUrl();
+    const current = urlFramework ?? (typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : DEFAULT_FRAMEWORK);
+    if (current !== DEFAULT_FRAMEWORK) {
+      switchFramework(DEFAULT_FRAMEWORK, '1');
+    }
+  }, []);
 
   // Persist on state changes
   useEffect(() => {

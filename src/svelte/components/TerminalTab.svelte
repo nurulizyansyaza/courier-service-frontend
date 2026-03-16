@@ -7,6 +7,7 @@
   import { runCalculation } from '../../core/calculationRunner'
   import { switchFramework } from '../../core/frameworkSwitcher'
   import { getTabState, setTabState } from '../../core/tabStateManager'
+  import { patchTabUIState } from '../../core/sessionPersistence'
   import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
@@ -116,10 +117,14 @@
         // Update tab state synchronously so beforeunload persists the correct
         // per-tab framework before page navigation
         setTabState(tab.id, { framework: action.framework })
+        // Explicitly persist to sessionStorage before navigation to avoid
+        // race with Vite server restart / page unload
+        patchTabUIState(tab.id, getTabState(tab.id))
         switchFramework(action.framework, tab.id).then(result => {
           if (!result.success) {
             framework = previousFramework
             setTabState(tab.id, { framework: previousFramework })
+            patchTabUIState(tab.id, getTabState(tab.id))
             history = [...history, { type: 'error' as const, content: `✗ Switch failed: ${result.message}`, timestamp: Date.now() }]
           }
         })

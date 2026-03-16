@@ -60,7 +60,17 @@ watch([tabs, activeTabId], persist, { deep: true });
 watch(activeTabId, (id) => updateUrl(getTabState(id).framework, id), { immediate: true });
 
 function handleBeforeUnload() { persist(); }
-onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  // Fresh session — redirect to default framework if build/URL differs
+  if (!initial.hadSession) {
+    const { framework: urlFramework } = parseUrl();
+    const current = urlFramework ?? (typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : DEFAULT_FRAMEWORK);
+    if (current !== DEFAULT_FRAMEWORK) {
+      switchFramework(DEFAULT_FRAMEWORK, '1');
+    }
+  }
+});
 onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
 function addNewTab() {

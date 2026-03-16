@@ -9,6 +9,7 @@ import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { switchFramework } from '../../core/frameworkSwitcher'
 import { getTabState, setTabState } from '../../core/tabStateManager'
+import { patchTabUIState } from '../../core/sessionPersistence'
 import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
 import { useSession } from '../sessionStore'
 
@@ -99,10 +100,14 @@ function handleCommand(cmd: string): boolean {
       // Update tab state synchronously so beforeunload persists the correct
       // per-tab framework before page navigation
       setTabState(props.tab.id, { framework: action.framework })
+      // Explicitly persist to sessionStorage before navigation to avoid
+      // race with Vite server restart / page unload
+      patchTabUIState(props.tab.id, getTabState(props.tab.id))
       switchFramework(action.framework, props.tab.id).then(result => {
         if (!result.success) {
           framework.value = previousFramework
           setTabState(props.tab.id, { framework: previousFramework })
+          patchTabUIState(props.tab.id, getTabState(props.tab.id))
           addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` })
         }
       })

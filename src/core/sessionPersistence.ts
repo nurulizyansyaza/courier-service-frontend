@@ -74,3 +74,25 @@ export function clearSession(): void {
     // ignore
   }
 }
+
+/**
+ * Patch a single tab's UI state inside the existing sessionStorage entry.
+ * This is called synchronously *before* page navigation (framework switch)
+ * so that the framework label is persisted immediately — without relying
+ * on the `beforeunload` event which may race against a Vite server restart.
+ */
+export function patchTabUIState(tabId: string, state: TabUIState): void {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw) as PersistedSession;
+    if (!data.tabUIStates) data.tabUIStates = {};
+    data.tabUIStates[tabId] = {
+      ...state,
+      history: state.history.slice(-MAX_HISTORY_PER_TAB),
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // silently degrade
+  }
+}

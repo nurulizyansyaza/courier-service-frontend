@@ -9,8 +9,10 @@
     updateTab as updateTabLogic,
   } from '../../core/tabManager';
   import { loadSession, saveSession } from '../../core/sessionPersistence';
-  import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
+  import { loadTabStates, exportTabStates, pruneTabStates, getTabState, setTabState } from '../../core/tabStateManager';
   import { parseUrl, updateUrl } from '../../core/urlHelpers';
+  import { switchFramework } from '../../core/frameworkSwitcher';
+  import { DEFAULT_FRAMEWORK } from '../../core/constants';
   import TerminalTab from './TerminalTab.svelte';
 
   function initFromStorage() {
@@ -23,17 +25,15 @@
         urlTabId && saved.tabs.some(t => t.id === urlTabId)
           ? urlTabId
           : saved.activeTabId;
-      return {
-        tabs: saved.tabs,
-        activeTabId,
-        nextTabNumber: saved.nextTabNumber,
-      };
+      return { tabs: saved.tabs, activeTabId, nextTabNumber: saved.nextTabNumber, hadSession: true };
     }
-    return {
-      tabs: [createEmptyTab('1', 'courier_cli')],
-      activeTabId: '1',
-      nextTabNumber: 2,
-    };
+
+    const defaultTabs = [createEmptyTab('1', 'courier_cli')];
+    loadTabStates(null);
+    setTabState('1', { framework: DEFAULT_FRAMEWORK });
+    saveSession({ tabs: defaultTabs, activeTabId: '1', nextTabNumber: 2, tabUIStates: exportTabStates() });
+
+    return { tabs: defaultTabs, activeTabId: '1', nextTabNumber: 2, hadSession: false };
   }
 
   const initial = initFromStorage();
@@ -68,7 +68,17 @@
   });
 
   function handleBeforeUnload() { persist(); }
-  onMount(() => window.addEventListener('beforeunload', handleBeforeUnload));
+  onMount(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Fresh session — redirect to default framework if build/URL differs
+    if (!initial.hadSession) {
+      const { framework: urlFramework } = parseUrl();
+      const current = urlFramework ?? (typeof __FRAMEWORK__ !== 'undefined' ? __FRAMEWORK__ : DEFAULT_FRAMEWORK);
+      if (current !== DEFAULT_FRAMEWORK) {
+        switchFramework(DEFAULT_FRAMEWORK, '1');
+      }
+    }
+  });
   onDestroy(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
   function addNewTab() {

@@ -36,6 +36,8 @@ export const WELCOME_LINES: HistoryLine[] = [
 
 // ── Framework Config ───────────────────────────────────────────────────
 
+export const DEFAULT_FRAMEWORK: Framework = 'react';
+
 export const FRAMEWORK_CONFIG: Record<
   Framework,
   { label: string; color: string; bgColor: string; borderColor: string }

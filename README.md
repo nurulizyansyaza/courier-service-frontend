@@ -19,9 +19,10 @@ src/
     calculations.ts   # Core library wrappers
     calculationRunner.ts  # API-first runner with local fallback
     tabStateManager.ts    # Tab state management
-    sessionPersistence.ts # sessionStorage save/load
+    sessionPersistence.ts # sessionStorage save/load + patchTabUIState
     frameworkSwitcher.ts  # Framework switching (dev + production)
     urlHelpers.ts         # URL parsing/sync (/<framework>/<tabId>)
+    constants.ts          # Shared constants (DEFAULT_FRAMEWORK, etc.)
     types.ts              # Shared TypeScript types
   react/              # React implementation
   vue/                # Vue implementation
@@ -59,16 +60,19 @@ The URL reflects both the active terminal tab and its associated framework:
 /<framework>/<tabId>
 ```
 
-For example, if a user has two terminal tabs — tab `1` on React and tab `1710547200000` on Vue:
+For example, if a user has two terminal tabs — tab `1` on React and tab `2` on Vue:
 
 | Active tab | URL |
 |---|---|
 | tab 1 (React) | `/react/1` |
-| tab 1710547200000 (Vue) | `/vue/1710547200000` |
+| tab 2 (Vue) | `/vue/2` |
+
+Tab IDs are sequential integers (1, 2, 3, …) for clean, readable URLs.
 
 - **Tab switch** — updates the URL via `history.replaceState` (no page reload). The framework segment changes to match the selected tab's framework.
-- **Framework switch** — navigates to `/<new-framework>/<tabId>` (full page load to serve the correct build). Only the active terminal tab's framework label is updated; other tabs retain their original labels.
-- **Page reload** — in production, CloudFront serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`.
+- **Framework switch** — navigates to `/<new-framework>/<tabId>` (full page load to serve the correct build). Only the active terminal tab's framework label is updated; other tabs retain their original labels. The tab's framework is explicitly persisted to `sessionStorage` via `patchTabUIState` before navigation, avoiding race conditions with Vite server restart.
+- **Page reload** — in production, CloudFront serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`. Each tab's framework label is restored independently from the persisted session.
+- **Fresh session (browser close → reopen)** — `sessionStorage` is cleared when the browser closes, so a new session starts with the default framework (`react`) and one tab. If the URL or dev server was left on a non-default framework, the app automatically resets by switching back to the default.
 
 ### Session Persistence
 
@@ -76,9 +80,11 @@ Session state (tabs, input data, command history) is saved to `sessionStorage` a
 
 - State is saved on every tab change and before the page unloads (`beforeunload`)
 - The `beforeunload` handler persists the correct per-tab framework so the label matches the URL after reload
+- `patchTabUIState(tabId, state)` explicitly writes a single tab's UI state to `sessionStorage` before framework navigation — this avoids a race condition where the Vite server restart or page unload could happen before the `beforeunload` handler fires
 - Command history is capped at 200 entries per tab
 - Closed tab UI states are pruned to prevent unbounded storage growth
 - Each terminal tab independently tracks its own framework — switching framework on one tab does not affect others
+- On fresh session init (no `sessionStorage` data), the app pre-saves a default session and redirects to `DEFAULT_FRAMEWORK` (`react`) if the current build/URL differs
 
 ## API Integration
 

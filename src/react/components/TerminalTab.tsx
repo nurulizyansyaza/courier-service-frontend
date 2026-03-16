@@ -22,6 +22,7 @@ import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/consta
 import { getLastClearIndex } from "../../core/utils";
 import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
+import { patchTabUIState } from "../../core/sessionPersistence";
 import { useSession } from "../sessionStore";
 
 interface TerminalTabProps {
@@ -102,10 +103,14 @@ export function TerminalTab({
         // Update tab state synchronously so beforeunload persists the correct
         // per-tab framework before page navigation
         setTabState(tab.id, { framework: action.framework });
+        // Explicitly persist to sessionStorage before navigation to avoid
+        // race with Vite server restart / page unload
+        patchTabUIState(tab.id, getTabState(tab.id));
         switchFramework(action.framework, tab.id).then(result => {
           if (!result.success) {
             setFramework(previousFramework);
             setTabState(tab.id, { framework: previousFramework });
+            patchTabUIState(tab.id, getTabState(tab.id));
             addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` });
           }
         });

@@ -60,19 +60,24 @@ describe('urlHelpers', () => {
       replaceStateSpy.mockRestore();
     });
 
-    it('calls replaceState with correct path', () => {
-      // __FRAMEWORK__ defaults to 'react' in test env
-      updateUrl('tab-42');
+    it('calls replaceState with the tab framework and id', () => {
+      updateUrl('react', 'tab-42');
       expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/react/tab-42');
+    });
+
+    it('uses the tab framework, not the build framework', () => {
+      // Even if __FRAMEWORK__ is 'react', passing 'vue' uses vue in the URL
+      updateUrl('vue', 'tab-1');
+      expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/vue/tab-1');
     });
 
     it('does not call replaceState when pathname already matches', () => {
       Object.defineProperty(window, 'location', {
-        value: { pathname: '/react/tab-42' },
+        value: { pathname: '/vue/tab-42' },
         writable: true,
         configurable: true,
       });
-      updateUrl('tab-42');
+      updateUrl('vue', 'tab-42');
       expect(replaceStateSpy).not.toHaveBeenCalled();
       // Reset
       Object.defineProperty(window, 'location', {
@@ -84,7 +89,7 @@ describe('urlHelpers', () => {
 
     it('silently handles replaceState errors', () => {
       replaceStateSpy.mockImplementation(() => { throw new Error('blocked'); });
-      expect(() => updateUrl('tab-1')).not.toThrow();
+      expect(() => updateUrl('react', 'tab-1')).not.toThrow();
     });
   });
 });

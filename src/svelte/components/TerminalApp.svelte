@@ -9,7 +9,7 @@
     updateTab as updateTabLogic,
   } from '../../core/tabManager';
   import { loadSession, saveSession } from '../../core/sessionPersistence';
-  import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
+  import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
   import { parseUrl, updateUrl } from '../../core/urlHelpers';
   import TerminalTab from './TerminalTab.svelte';
 
@@ -64,7 +64,7 @@
 
   // Sync URL with active tab
   $effect(() => {
-    updateUrl(activeTabId);
+    updateUrl(getTabState(activeTabId).framework, activeTabId);
   });
 
   function handleBeforeUnload() { persist(); }

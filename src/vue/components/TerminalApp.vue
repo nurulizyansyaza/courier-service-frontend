@@ -9,7 +9,7 @@ import {
   updateTab as updateTabLogic,
 } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
-import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
+import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
 import { parseUrl, updateUrl } from '../../core/urlHelpers';
 import TerminalTab from './TerminalTab.vue';
 
@@ -57,7 +57,7 @@ function persist() {
 watch([tabs, activeTabId], persist, { deep: true });
 
 // Sync URL with active tab
-watch(activeTabId, (id) => updateUrl(id), { immediate: true });
+watch(activeTabId, (id) => updateUrl(getTabState(id).framework, id), { immediate: true });
 
 function handleBeforeUnload() { persist(); }
 onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));

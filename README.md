@@ -19,8 +19,9 @@ src/
     calculations.ts   # Core library wrappers
     calculationRunner.ts  # API-first runner with local fallback
     tabStateManager.ts    # Tab state management
-    sessionPersistence.ts # localStorage save/load
+    sessionPersistence.ts # sessionStorage save/load
     frameworkSwitcher.ts  # Framework switching (dev + production)
+    urlHelpers.ts         # URL parsing/sync (/<framework>/<tabId>)
     types.ts              # Shared TypeScript types
   react/              # React implementation
   vue/                # Vue implementation
@@ -50,13 +51,34 @@ Or edit `framework.config.json`:
 
 **Production mode** — all three frameworks are deployed simultaneously to S3 at `/react/`, `/vue/`, `/svelte/`. The `use <framework>` command navigates the user's browser to the corresponding URL. Framework switching is **per-user** — each user independently chooses their framework without affecting others.
 
+### URL Routing
+
+The URL reflects both the active terminal tab and its associated framework:
+
+```
+/<framework>/<tabId>
+```
+
+For example, if a user has two terminal tabs — tab `1` on React and tab `1710547200000` on Vue:
+
+| Active tab | URL |
+|---|---|
+| tab 1 (React) | `/react/1` |
+| tab 1710547200000 (Vue) | `/vue/1710547200000` |
+
+- **Tab switch** — updates the URL via `history.replaceState` (no page reload). The framework segment changes to match the selected tab's framework.
+- **Framework switch** — navigates to `/<new-framework>/<tabId>` (full page load to serve the correct build). Only the active terminal tab's framework label is updated; other tabs retain their original labels.
+- **Page reload** — in production, CloudFront serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`.
+
 ### Session Persistence
 
-Session state (tabs, input data, command history) is saved to `localStorage` and restored on page reload. This prevents data loss when refreshing the browser or reopening the terminal.
+Session state (tabs, input data, command history) is saved to `sessionStorage` and restored on page reload. Using `sessionStorage` (rather than `localStorage`) ensures session data clears when the browser or tab is closed, preventing stale data from surviving a browser restart.
 
-- State is saved on every tab change and before the page unloads
+- State is saved on every tab change and before the page unloads (`beforeunload`)
+- The `beforeunload` handler persists the correct per-tab framework so the label matches the URL after reload
 - Command history is capped at 200 entries per tab
 - Closed tab UI states are pruned to prevent unbounded storage growth
+- Each terminal tab independently tracks its own framework — switching framework on one tab does not affect others
 
 ## API Integration
 

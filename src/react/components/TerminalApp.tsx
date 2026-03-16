@@ -4,7 +4,7 @@ import { TerminalTab } from './TerminalTab';
 import type { TabData } from '../../core/types';
 import { createEmptyTab, addTab, closeTab as closeTabLogic, updateTab as updateTabLogic } from '../../core/tabManager';
 import { loadSession, saveSession } from '../../core/sessionPersistence';
-import { loadTabStates, exportTabStates, pruneTabStates } from '../../core/tabStateManager';
+import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
 import { parseUrl, updateUrl } from '../../core/urlHelpers';
 
 function initFromStorage() {
@@ -45,7 +45,7 @@ export function TerminalApp() {
 
   // Sync URL with active tab on mount and whenever activeTabId changes
   useEffect(() => {
-    updateUrl(activeTabId);
+    updateUrl(getTabState(activeTabId).framework, activeTabId);
   }, [activeTabId]);
 
   // Persist on state changes

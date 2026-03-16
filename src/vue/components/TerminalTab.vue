@@ -10,6 +10,7 @@ import { runCalculation } from '../../core/calculationRunner'
 import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
 import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
 import { getTabState, setTabState } from '../../core/tabStateManager'
+import { CommandHistoryNavigator } from '../../core/commandHistory'
 import { useSession } from '../sessionStore'
 
 const props = defineProps<{ tab: TabData }>()
@@ -20,6 +21,7 @@ const { session, getOffersForCalculation } = useSession()
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const scrollAreaRef = ref<HTMLDivElement | null>(null)
 const clearMarkerRef = ref<HTMLDivElement | null>(null)
+const cmdHistory = new CommandHistoryNavigator(props.tab.id)
 
 const tabState = getTabState(props.tab.id)
 const currentInput = ref(tabState.currentInput)
@@ -132,6 +134,7 @@ function handleCommand(cmd: string): boolean {
 function handleExecute() {
   if (!currentInput.value.trim()) return
   const input = currentInput.value.trim()
+  cmdHistory.onExecute(input)
 
   if (handleCommand(input)) {
     currentInput.value = ''
@@ -158,6 +161,14 @@ function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleExecute()
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    const prev = cmdHistory.navigateUp(currentInput.value)
+    if (prev !== null) currentInput.value = prev
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const next = cmdHistory.navigateDown()
+    if (next !== null) currentInput.value = next
   }
 }
 </script>

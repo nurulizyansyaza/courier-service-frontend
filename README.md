@@ -24,6 +24,19 @@ The frontend provides a terminal-style UI where users input package data and rec
 | `help` | Show available commands |
 | `exit` | Exit and reset terminal |
 | `/connect` | Reconnect after exit |
+| `↑` / `↓` | Navigate through previous command history |
+
+### Command History
+
+The terminal supports **real CLI-style command history navigation** using the up/down arrow keys:
+
+- **↑ Arrow** — Recall the previous command (press repeatedly to go further back)
+- **↓ Arrow** — Move forward through history (returns to your current draft at the bottom)
+- **Draft preservation** — If you're typing and press ↑, your draft is saved and restored when you press ↓ back
+- **Per-tab isolation** — Each terminal tab maintains its own independent command history
+- **Persistent storage** — History is stored in `localStorage`, so it survives exit, restart, connect, closing the browser tab, and closing the browser entirely
+- **50 command cap** — Oldest commands are pruned automatically
+- **Deduplication** — Consecutive duplicate commands are stored only once
 
 ```
 src/
@@ -31,6 +44,7 @@ src/
     calculationRunner.ts  # API-first runner with local fallback
     resultBuilders.ts     # Shared result/history/tab-update builders
     commandHandlers.ts    # Individual command handler functions
+    commandHistory.ts     # Per-tab command history (localStorage, ↑/↓ navigation)
     terminalCommands.ts   # Command dispatcher (routes to handlers)
     frameworkSwitcher.ts  # Framework switching (dev + production)
     frameworkSwitchOrchestrator.ts  # Shared switch-framework orchestration
@@ -184,12 +198,12 @@ The app works without the API running — calculations fall back to local mode a
 ## Testing
 
 ```bash
-npm test        # runs vitest (221 tests across 17 test files)
+npm test        # runs vitest (243 tests across 18 test files)
 ```
 
 Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:
 
-- **Core modules** — command handlers, calculation runner, result builders, session persistence, tab state, URL helpers, framework switching, terminal helpers
+- **Core modules** — command handlers, command history navigation, calculation runner, result builders, session persistence, tab state, URL helpers, framework switching, terminal helpers
 - **Component tests** — TerminalApp tab management, session restore, UI interactions
 - **Edge cases** — quota exceeded, malformed JSON, division by zero, scroll boundaries
 

@@ -3,6 +3,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 import {
   Terminal,
@@ -22,6 +23,7 @@ import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/consta
 import { getLastClearIndex } from "../../core/utils";
 import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
+import { CommandHistoryNavigator } from "../../core/commandHistory";
 import { useSession } from "../sessionStore";
 
 interface TerminalTabProps {
@@ -36,6 +38,11 @@ export function TerminalTab({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const clearMarkerRef = useRef<HTMLDivElement>(null);
+  const cmdHistoryRef = useRef<CommandHistoryNavigator | null>(null);
+  if (!cmdHistoryRef.current) {
+    cmdHistoryRef.current = new CommandHistoryNavigator(tab.id);
+  }
+  const cmdHistory = cmdHistoryRef.current;
   const { session, getOffersForCalculation } = useSession();
   const tabState = getTabState(tab.id);
   const [currentInput, setCurrentInput] = useState(tabState.currentInput);
@@ -135,6 +142,7 @@ export function TerminalTab({
   const handleExecute = () => {
     if (!currentInput.trim()) return;
     const input = currentInput.trim();
+    cmdHistory.onExecute(input);
 
     if (handleCommand(input)) {
       setCurrentInput("");
@@ -324,6 +332,14 @@ export function TerminalTab({
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleExecute();
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                const prev = cmdHistory.navigateUp(currentInput);
+                if (prev !== null) setCurrentInput(prev);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                const next = cmdHistory.navigateDown();
+                if (next !== null) setCurrentInput(next);
               }
             }}
             placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}

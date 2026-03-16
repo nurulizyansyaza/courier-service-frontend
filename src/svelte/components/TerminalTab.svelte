@@ -8,6 +8,7 @@
   import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
   import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
   import { getTabState, setTabState } from '../../core/tabStateManager'
+  import { CommandHistoryNavigator } from '../../core/commandHistory'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
 
@@ -16,6 +17,7 @@
   let inputRef: HTMLTextAreaElement | null = $state(null)
   let scrollAreaRef: HTMLDivElement | null = $state(null)
   let clearMarkerRef: HTMLDivElement | null = $state(null)
+  const cmdHistory = new CommandHistoryNavigator(tab.id)
   const tabState = getTabState(tab.id)
   let currentInput = $state(tabState.currentInput)
   let history: HistoryEntry[] = $state(tabState.history)
@@ -65,12 +67,21 @@
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       processInput()
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const prev = cmdHistory.navigateUp(currentInput)
+      if (prev !== null) currentInput = prev
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const next = cmdHistory.navigateDown()
+      if (next !== null) currentInput = next
     }
   }
 
   function processInput() {
     const trimmed = currentInput.trim()
     if (!trimmed) return
+    cmdHistory.onExecute(trimmed)
 
     if (handleCommand(trimmed)) {
       currentInput = ''

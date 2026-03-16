@@ -9,6 +9,7 @@ import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
 import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
+import { getTabState, setTabState } from '../../core/tabStateManager'
 import { useSession } from '../sessionStore'
 
 const props = defineProps<{ tab: TabData }>()

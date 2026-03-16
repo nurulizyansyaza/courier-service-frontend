@@ -7,6 +7,7 @@
   import { runCalculation } from '../../core/calculationRunner'
   import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
   import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
+  import { getTabState, setTabState } from '../../core/tabStateManager'
   import { useSession } from '../sessionStore.svelte'
   import { Package, Loader2 } from 'lucide-svelte'
 

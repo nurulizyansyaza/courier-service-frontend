@@ -25,14 +25,16 @@ The frontend provides a terminal-style UI where users input package data and rec
 | `exit` | Exit and reset terminal |
 | `/connect` | Reconnect after exit |
 | `↑` / `↓` | Navigate through previous command history |
+| `Ctrl+C` | Clear current input |
 
 ### Command History
 
 The terminal supports **real CLI-style command history navigation** using the up/down arrow keys:
 
 - **↑ Arrow** — Recall the previous command (press repeatedly to go further back)
-- **↓ Arrow** — Move forward through history (returns to your current draft at the bottom)
-- **Draft preservation** — If you're typing and press ↑, your draft is saved and restored when you press ↓ back
+- **↓ Arrow** — Move forward through history (clears input at the bottom, showing placeholder)
+- **Ctrl+C** — Clear the current input and reset history cursor
+- **Edit-aware cursor** — If you recall a command with ↑ then edit or delete text, the cursor resets so the next ↑ starts fresh from the most recent command
 - **Per-tab isolation** — Each terminal tab maintains its own independent command history
 - **Persistent storage** — History is stored in `localStorage`, so it survives exit, restart, connect, closing the browser tab, and closing the browser entirely
 - **50 command cap** — Oldest commands are pruned automatically

@@ -239,6 +239,8 @@ export function TerminalTab({
                     <div><span className="text-cyan-400">help</span> - Show available commands</div>
                     <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
                     <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
+                    <div><span className="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+                    <div><span className="text-zinc-500">Ctrl+C</span> - Clear current input</div>
                   </div>
                 </div>
                 <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
@@ -327,11 +329,16 @@ export function TerminalTab({
           <textarea
             ref={inputRef}
             value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
+            onChange={(e) => { setCurrentInput(e.target.value); cmdHistory.resetCursor(); }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleExecute();
+              } else if (e.key === "c" && e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                setCurrentInput("");
+                cmdHistory.resetCursor();
+                setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 const prev = cmdHistory.navigateUp(currentInput);
@@ -342,10 +349,8 @@ export function TerminalTab({
               } else if (e.key === "ArrowDown") {
                 e.preventDefault();
                 const next = cmdHistory.navigateDown();
-                if (next !== null) {
-                  setCurrentInput(next);
-                  setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
-                }
+                setCurrentInput(next);
+                setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
               }
             }}
             placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}
@@ -363,7 +368,7 @@ export function TerminalTab({
         {/* Hints */}
         <div className="mt-2 text-[10px] text-zinc-700">
           {isConnected
-            ? "Press Enter to execute • Shift+Enter for new line • Type /change, clear, or exit"
+            ? "Press Enter to execute • Shift+Enter for new line • ↑/↓ history • Ctrl+C clear"
             : "Type /connect and press Enter to reconnect"}
         </div>
       </div>
@@ -575,6 +580,8 @@ function WelcomeScreen({ tab, session }: { tab: TabData; session: SessionState }
           <div><span className="text-cyan-400">help</span> - Show available commands</div>
           <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
           <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
+          <div><span className="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+          <div><span className="text-zinc-500">Ctrl+C</span> - Clear current input</div>
         </div>
       </div>
 

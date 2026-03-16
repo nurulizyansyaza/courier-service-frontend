@@ -85,12 +85,12 @@ export class CommandHistoryNavigator {
     return this.commands[this.cursor];
   }
 
-  /** Navigate down (newer). Returns the text to display, or null if at the bottom. */
-  navigateDown(): string | null {
-    if (this.cursor >= this.commands.length) return null;
+  /** Navigate down (newer). Returns the text to display, or empty string at the bottom. */
+  navigateDown(): string {
+    if (this.cursor >= this.commands.length) return '';
     this.cursor++;
     if (this.cursor === this.commands.length) {
-      return this.draft;
+      return '';
     }
     return this.commands[this.cursor];
   }

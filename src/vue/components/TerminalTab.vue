@@ -161,6 +161,11 @@ function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleExecute()
+  } else if (e.key === 'c' && e.ctrlKey && !e.metaKey) {
+    e.preventDefault()
+    currentInput.value = ''
+    cmdHistory.resetCursor()
+    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
     const prev = cmdHistory.navigateUp(currentInput.value)
@@ -171,10 +176,8 @@ function handleKeyDown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowDown') {
     e.preventDefault()
     const next = cmdHistory.navigateDown()
-    if (next !== null) {
-      currentInput.value = next
-      setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
-    }
+    currentInput.value = next
+    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
   }
 }
 </script>
@@ -547,6 +550,8 @@ function handleKeyDown(e: KeyboardEvent) {
                 <div>
                   <span class="text-emerald-400">/connect</span> - Reconnect after exit
                 </div>
+                <div><span class="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+                <div><span class="text-zinc-500">Ctrl+C</span> - Clear current input</div>
               </div>
             </div>
 
@@ -584,6 +589,8 @@ function handleKeyDown(e: KeyboardEvent) {
                 <div>
                   <span class="text-emerald-400">/connect</span> - Reconnect after exit
                 </div>
+                <div><span class="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+                <div><span class="text-zinc-500">Ctrl+C</span> - Clear current input</div>
               </div>
             </div>
             <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
@@ -683,7 +690,7 @@ function handleKeyDown(e: KeyboardEvent) {
           ref="inputRef"
           v-model="currentInput"
           @keydown="handleKeyDown"
-          @input="(e: Event) => resizeTextarea(e.target as HTMLTextAreaElement)"
+          @input="(e: Event) => { resizeTextarea(e.target as HTMLTextAreaElement); cmdHistory.resetCursor() }"
           :placeholder="
             isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'
           "
@@ -699,7 +706,7 @@ function handleKeyDown(e: KeyboardEvent) {
       <div class="mt-2 text-[10px] text-zinc-700">
         {{
           isConnected
-            ? 'Press Enter to execute • Shift+Enter for new line • Type /change, clear, or exit'
+            ? 'Press Enter to execute • Shift+Enter for new line • ↑/↓ history • Ctrl+C clear'
             : 'Type /connect and press Enter to reconnect'
         }}
       </div>

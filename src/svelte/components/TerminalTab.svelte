@@ -61,12 +61,18 @@
     const target = e.target as HTMLTextAreaElement
     currentInput = target.value
     resizeTextarea(target)
+    cmdHistory.resetCursor()
   }
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       processInput()
+    } else if (e.key === 'c' && e.ctrlKey && !e.metaKey) {
+      e.preventDefault()
+      currentInput = ''
+      cmdHistory.resetCursor()
+      setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const prev = cmdHistory.navigateUp(currentInput)
@@ -77,10 +83,8 @@
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = cmdHistory.navigateDown()
-      if (next !== null) {
-        currentInput = next
-        setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
-      }
+      currentInput = next
+      setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
     }
   }
 
@@ -397,6 +401,8 @@
                 <div><span class="text-cyan-400">help</span> - Show available commands</div>
                 <div><span class="text-red-400">exit</span> - Exit and reset terminal</div>
                 <div><span class="text-emerald-400">/connect</span> - Reconnect after exit</div>
+                <div><span class="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+                <div><span class="text-zinc-500">Ctrl+C</span> - Clear current input</div>
               </div>
             </div>
 
@@ -417,6 +423,8 @@
                 <div><span class="text-cyan-400">help</span> - Show available commands</div>
                 <div><span class="text-red-400">exit</span> - Exit and reset terminal</div>
                 <div><span class="text-emerald-400">/connect</span> - Reconnect after exit</div>
+                <div><span class="text-zinc-500">↑ / ↓</span> - Navigate command history</div>
+                <div><span class="text-zinc-500">Ctrl+C</span> - Clear current input</div>
               </div>
             </div>
             <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
@@ -511,7 +519,7 @@
     <!-- Hints -->
     <div class="mt-2 text-[10px] text-zinc-700">
       {#if isConnected}
-        Press Enter to execute • Shift+Enter for new line • Type /change, clear, or exit
+        Press Enter to execute • Shift+Enter for new line • ↑/↓ history • Ctrl+C clear
       {:else}
         Type /connect and press Enter to reconnect
       {/if}

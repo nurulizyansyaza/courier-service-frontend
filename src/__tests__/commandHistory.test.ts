@@ -105,8 +105,8 @@ describe('CommandHistoryNavigator', () => {
     expect(nav.navigateUp('')).toBeNull();
   });
 
-  it('navigateDown returns null when at bottom', () => {
-    expect(nav.navigateDown()).toBeNull();
+  it('navigateDown returns empty string when at bottom', () => {
+    expect(nav.navigateDown()).toBe('');
   });
 
   it('navigates up through history', () => {
@@ -120,23 +120,22 @@ describe('CommandHistoryNavigator', () => {
     expect(nav.navigateUp('')).toBeNull(); // at top
   });
 
-  it('navigates down back to draft', () => {
+  it('navigates down back to empty at bottom', () => {
     nav.onExecute('cmd1');
     nav.onExecute('cmd2');
 
     nav.navigateUp('my draft');
     nav.navigateUp('my draft');
     expect(nav.navigateDown()).toBe('cmd2');
-    expect(nav.navigateDown()).toBe('my draft');
-    expect(nav.navigateDown()).toBeNull(); // at bottom
+    expect(nav.navigateDown()).toBe('');
+    expect(nav.navigateDown()).toBe(''); // stays empty at bottom
   });
 
-  it('preserves draft when navigating up then back down', () => {
+  it('clears input when reaching bottom of history', () => {
     nav.onExecute('old');
-    const draft = 'typing something...';
-    nav.navigateUp(draft);
-    const restored = nav.navigateDown();
-    expect(restored).toBe(draft);
+    nav.navigateUp('typing something...');
+    const result = nav.navigateDown();
+    expect(result).toBe('');
   });
 
   it('resets cursor after onExecute', () => {

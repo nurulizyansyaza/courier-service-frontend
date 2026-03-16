@@ -11,6 +11,7 @@ import {
 import { loadSession, saveSession } from '../../core/sessionPersistence';
 import { loadTabStates, exportTabStates, pruneTabStates, getTabState } from '../../core/tabStateManager';
 import { parseUrl, updateUrl } from '../../core/urlHelpers';
+import { DEFAULT_FRAMEWORK } from '../../core/constants';
 import TerminalTab from './TerminalTab.vue';
 
 function initFromStorage() {

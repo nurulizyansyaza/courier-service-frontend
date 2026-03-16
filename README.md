@@ -37,7 +37,43 @@ src/
   svelte/             # Svelte implementation
 ```
 
+### Component Architecture
+
+```mermaid
+graph TB
+    subgraph Frameworks["Framework Implementations"]
+        React["React<br/>TerminalApp · TerminalTab"]
+        Vue["Vue<br/>TerminalApp · TerminalTab"]
+        Svelte["Svelte<br/>TerminalApp · TerminalTab"]
+    end
+
+    subgraph Core["core/ — Shared Logic"]
+        Commands["terminalCommands.ts<br/>commandHandlers.ts"]
+        Calc["calculationRunner.ts<br/>resultBuilders.ts"]
+        FW["frameworkSwitcher.ts<br/>frameworkSwitchOrchestrator.ts"]
+        Session["sessionPersistence.ts<br/>tabStateManager.ts"]
+        URL["urlHelpers.ts"]
+        Helpers["terminalHelpers.ts<br/>offerFormatters.ts<br/>historyUtils.ts"]
+    end
+
+    React --> Core
+    Vue --> Core
+    Svelte --> Core
+    Calc -->|"API /api/*"| API["API Server"]
+    Calc -.->|"fallback"| CoreLib["@courier-service-core"]
+```
+
 ### Framework Switching
+
+```mermaid
+graph TB
+    User["User types<br/>'use vue'"] --> Check{"Dev or Prod?"}
+    Check -->|"Dev"| Vite["POST /__api/switch-framework<br/>Vite restarts with new config"]
+    Check -->|"Prod"| Nav["Navigate to /vue/tabId<br/>CloudFront serves Vue build"]
+    Vite --> Reload["Page reloads<br/>with new framework"]
+    Nav --> Reload
+    Reload --> Restore["Restore session<br/>from sessionStorage"]
+```
 
 **Dev mode** — switch frameworks at runtime via the terminal UI (`use vue`) or API:
 
@@ -83,6 +119,18 @@ Tab IDs are sequential integers (1, 2, 3, …) for clean, readable URLs.
 - **Fresh session (browser close → reopen)** — `sessionStorage` is cleared when the browser closes, so a new session starts with the default framework (`react`) and one tab. If the URL or dev server was left on a non-default framework, the app automatically resets by switching back to the default.
 
 ### Session Persistence
+
+```mermaid
+graph TB
+    Action["Tab change · Input · beforeunload"] --> Save["Save to sessionStorage"]
+    Save --> Data["tabs · input · history · framework labels"]
+
+    Reload["Page reload"] --> Load["Load from sessionStorage"]
+    Load --> Restore["Restore tabs + active tab from URL"]
+
+    Close["Browser close"] --> Clear["sessionStorage cleared"]
+    Clear --> Fresh["Next visit: default framework + 1 tab"]
+```
 
 Session state (tabs, input data, command history) is saved to `sessionStorage` and restored on page reload. Using `sessionStorage` (rather than `localStorage`) ensures session data clears when the browser or tab is closed, preventing stale data from surviving a browser restart.
 

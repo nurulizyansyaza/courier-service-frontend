@@ -78,7 +78,7 @@ export function TerminalApp() {
   }, []);
 
   const addNewTab = () => {
-    const newId = String(Date.now());
+    const newId = String(nextTabNumber.current);
     const result = addTab(tabs, newId, `courier_${nextTabNumber.current}`);
     nextTabNumber.current += 1;
     setTabs(result.tabs);

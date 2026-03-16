@@ -64,7 +64,7 @@ onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
 onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
 function addNewTab() {
-  const id = String(Date.now());
+  const id = String(nextTabNumber);
   const result = addTab(tabs.value, id, `courier_${nextTabNumber}`);
   tabs.value = result.tabs;
   activeTabId.value = result.activeTabId;

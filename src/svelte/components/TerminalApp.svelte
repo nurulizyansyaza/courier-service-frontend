@@ -72,7 +72,7 @@
   onDestroy(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
   function addNewTab() {
-    const newId = String(Date.now());
+    const newId = String(nextTabNumber);
     const result = addTab(tabs, newId, `courier_${nextTabNumber}`);
     nextTabNumber += 1;
     tabs = result.tabs;

@@ -27,14 +27,20 @@ export interface CalculationFailure {
 
 export type CalculationResult = CalculationSuccess | CalculationFailure;
 
-async function fetchCostFromApi(input: string): Promise<{ output: string; parsedResults: ParsedResult[] } | null> {
+async function fetchCostFromApi(input: string): Promise<{ output: string; parsedResults: ParsedResult[] } | { apiError: string } | null> {
   const res = await fetch('/api/cost', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ input }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    try {
+      const errorData = await res.json();
+      if (errorData.error) return { apiError: errorData.error };
+    } catch { /* response wasn't JSON — fall through */ }
+    return null;
+  }
 
   const data = await res.json();
   const output = (data.results as Array<{ id: string; discount: number; cost: number }>)
@@ -51,14 +57,20 @@ async function fetchTimeFromApi(
   parsedResults: ParsedResult[];
   updatedTransit: TransitPackage[];
   renamedPackages?: { oldId: string; newId: string }[];
-} | null> {
+} | { apiError: string } | null> {
   const res = await fetch('/api/delivery/transit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ input, transitPackages }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    try {
+      const errorData = await res.json();
+      if (errorData.error) return { apiError: errorData.error };
+    } catch { /* response wasn't JSON — fall through */ }
+    return null;
+  }
 
   const data = await res.json() as {
     output: string;
@@ -82,7 +94,8 @@ async function runViaApi(
   try {
     if (calculationType === 'cost') {
       const result = await fetchCostFromApi(input);
-      if (!result) return buildFailureResult('API error');
+      if (!result) return null;
+      if ('apiError' in result) return buildFailureResult(result.apiError);
       return {
         success: true,
         output: result.output,
@@ -91,7 +104,8 @@ async function runViaApi(
       };
     } else {
       const result = await fetchTimeFromApi(input, transitPackages);
-      if (!result) return buildFailureResult('API error');
+      if (!result) return null;
+      if ('apiError' in result) return buildFailureResult(result.apiError);
       return {
         success: true,
         output: result.output,

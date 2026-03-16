@@ -27,6 +27,10 @@ The frontend provides a terminal-style UI where users input package data and rec
 | `↑` / `↓` | Navigate through previous command history |
 | `Ctrl+C` | Clear current input |
 
+### Error Display
+
+Error messages are displayed with line breaks — each error appears on its own line with a bullet prefix (•) and spacing between them, rather than as a single block of text.
+
 ### Command History
 
 The terminal supports **real CLI-style command history navigation** using the up/down arrow keys:

@@ -7,6 +7,7 @@ import {
   handleInvalidChange,
   handleClear,
   handleRestart,
+  handleHelp,
   handleExit,
 } from './commandHandlers';
 
@@ -19,6 +20,7 @@ export type CommandAction =
   | { type: 'invalid-change'; historyEntries: HistoryEntry[] }
   | { type: 'clear'; historyEntries: HistoryEntry[] }
   | { type: 'restart'; historyEntries: HistoryEntry[] }
+  | { type: 'help'; historyEntries: HistoryEntry[] }
   | { type: 'exit'; tabUpdates: Partial<TabData> }
   | { type: 'unknown-framework'; historyEntries: HistoryEntry[] }
   | { type: 'unknown-mode'; historyEntries: HistoryEntry[] }
@@ -40,6 +42,7 @@ export function processCommand(cmd: string, isConnected: boolean): CommandAction
 
   if (lower === 'clear') return handleClear(cmd);
   if (lower === '/restart') return handleRestart();
+  if (lower === 'help') return handleHelp();
   if (lower === 'exit') return handleExit();
 
   return null;

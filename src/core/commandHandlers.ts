@@ -91,6 +91,10 @@ export function handleRestart(): CommandAction {
   return { type: 'restart', historyEntries: [{ type: 'welcome', content: 'restart' }] };
 }
 
+export function handleHelp(): CommandAction {
+  return { type: 'help', historyEntries: [{ type: 'help', content: 'help' }] };
+}
+
 export function handleExit(): CommandAction {
   return {
     type: 'exit',

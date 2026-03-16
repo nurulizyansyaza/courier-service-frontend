@@ -119,6 +119,9 @@ export function TerminalTab({
       case 'restart':
         addToHistory(action.historyEntries[0]);
         break;
+      case 'help':
+        addToHistory(action.historyEntries[0]);
+        break;
       case 'exit':
         setIsConnected(false);
         setShowWelcome(false);
@@ -213,6 +216,25 @@ export function TerminalTab({
 
             {entry.type === "welcome" && (
               <WelcomeScreen tab={tab} session={session} />
+            )}
+
+            {entry.type === "help" && (
+              <div className="mb-4 sm:mb-6">
+                <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+                <div className="text-zinc-600 text-xs mb-3 sm:mb-4">
+                  <div className="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
+                  <div className="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+                    <div><span className="text-emerald-400">/change use</span> <span className="text-zinc-500">react | vue | svelte</span> - Switch framework</div>
+                    <div><span className="text-emerald-400">/change mode</span> <span className="text-zinc-500">cost | time</span> - Switch calculation mode</div>
+                    <div><span className="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
+                    <div><span className="text-cyan-400">/restart</span> - Show welcome screen again</div>
+                    <div><span className="text-cyan-400">help</span> - Show available commands</div>
+                    <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
+                    <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
+                  </div>
+                </div>
+                <div className="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+              </div>
             )}
           </div>
         ))}
@@ -528,6 +550,7 @@ function WelcomeScreen({ tab, session }: { tab: TabData; session: SessionState }
           <div><span className="text-emerald-400">/change mode</span> <span className="text-zinc-500">cost | time</span> - Switch calculation mode</div>
           <div><span className="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
           <div><span className="text-cyan-400">/restart</span> - Show welcome screen again</div>
+          <div><span className="text-cyan-400">help</span> - Show available commands</div>
           <div><span className="text-red-400">exit</span> - Exit and reset terminal</div>
           <div><span className="text-emerald-400">/connect</span> - Reconnect after exit</div>
         </div>

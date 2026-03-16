@@ -13,6 +13,18 @@ npm run dev     # starts Vite dev server on http://localhost:5173
 
 The frontend provides a terminal-style UI where users input package data and receive cost/delivery time calculations. It supports three frameworks sharing a common core:
 
+### Terminal Commands
+
+| Command | Description |
+|---------|-------------|
+| `/change use react \| vue \| svelte` | Switch framework |
+| `/change mode cost \| time` | Switch calculation mode |
+| `clear` | Clear screen (scroll up to see history) |
+| `/restart` | Show welcome screen again |
+| `help` | Show available commands |
+| `exit` | Exit and reset terminal |
+| `/connect` | Reconnect after exit |
+
 ```
 src/
   core/               # Shared logic (framework-agnostic)
@@ -172,7 +184,7 @@ The app works without the API running — calculations fall back to local mode a
 ## Testing
 
 ```bash
-npm test        # runs vitest (220 tests across 17 test files)
+npm test        # runs vitest (221 tests across 17 test files)
 ```
 
 Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:

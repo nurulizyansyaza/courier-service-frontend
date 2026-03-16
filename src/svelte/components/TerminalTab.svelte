@@ -133,6 +133,9 @@
       case 'restart':
         history = [...history, { ...action.historyEntries[0], timestamp: Date.now() }]
         break
+      case 'help':
+        history = [...history, { ...action.historyEntries[0], timestamp: Date.now() }]
+        break
       case 'exit':
         isConnected = false
         history = []
@@ -374,11 +377,31 @@
                 <div><span class="text-emerald-400">/change mode</span> <span class="text-zinc-500">cost | time</span> - Switch calculation mode</div>
                 <div><span class="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
                 <div><span class="text-cyan-400">/restart</span> - Show welcome screen again</div>
+                <div><span class="text-cyan-400">help</span> - Show available commands</div>
                 <div><span class="text-red-400">exit</span> - Exit and reset terminal</div>
                 <div><span class="text-emerald-400">/connect</span> - Reconnect after exit</div>
               </div>
             </div>
 
+            <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+          </div>
+        {/if}
+
+        {#if entry.type === 'help'}
+          <div class="mb-4 sm:mb-6">
+            <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
+            <div class="text-zinc-600 text-xs mb-3 sm:mb-4">
+              <div class="text-cyan-400/70 mb-1 text-xs sm:text-sm">Available Commands:</div>
+              <div class="font-mono text-[9px] sm:text-[10px] md:text-xs pl-1.5 sm:pl-2 space-y-0.5">
+                <div><span class="text-emerald-400">/change use</span> <span class="text-zinc-500">react | vue | svelte</span> - Switch framework</div>
+                <div><span class="text-emerald-400">/change mode</span> <span class="text-zinc-500">cost | time</span> - Switch calculation mode</div>
+                <div><span class="text-amber-400">clear</span> - Clear screen (scroll up to see history)</div>
+                <div><span class="text-cyan-400">/restart</span> - Show welcome screen again</div>
+                <div><span class="text-cyan-400">help</span> - Show available commands</div>
+                <div><span class="text-red-400">exit</span> - Exit and reset terminal</div>
+                <div><span class="text-emerald-400">/connect</span> - Reconnect after exit</div>
+              </div>
+            </div>
             <div class="border-t border-[#2d1b4e]/30 my-3 sm:my-4"></div>
           </div>
         {/if}

@@ -132,7 +132,7 @@ export interface CommandHistoryEntry {
 }
 
 export interface HistoryEntry {
-  type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome';
+  type: 'input' | 'output' | 'result' | 'command' | 'error' | 'info' | 'clear' | 'welcome' | 'help';
   content: string;
   parsedResults?: ParsedResult[];
   calculationType?: 'cost' | 'time';

@@ -143,6 +143,17 @@ describe('processCommand', () => {
     });
   });
 
+  describe('help', () => {
+    it('returns help action with help history entry', () => {
+      const result = processCommand('help', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('help');
+      if (result!.type === 'help') {
+        expect(result.historyEntries[0].type).toBe('help');
+      }
+    });
+  });
+
   describe('exit', () => {
     it('returns exit action with tab reset', () => {
       const result = processCommand('exit', true);

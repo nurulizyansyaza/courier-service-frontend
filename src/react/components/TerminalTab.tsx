@@ -17,12 +17,10 @@ import {
 } from "@nurulizyansyaza/courier-service-core";
 import { processCommand } from "../../core/terminalCommands";
 import { runCalculation } from "../../core/calculationRunner";
-import { switchFramework } from "../../core/frameworkSwitcher";
+import { executeFrameworkSwitch } from "../../core/frameworkSwitchOrchestrator";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
 import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea } from "../../core/terminalHelpers";
-import { getTabState, setTabState } from "../../core/tabStateManager";
-import { patchTabUIState } from "../../core/sessionPersistence";
 import { useSession } from "../sessionStore";
 
 interface TerminalTabProps {
@@ -99,20 +97,9 @@ export function TerminalTab({
       case 'switch-framework': {
         const previousFramework = framework;
         action.historyEntries.forEach(e => addToHistory(e));
-        setFramework(action.framework);
-        // Update tab state synchronously so beforeunload persists the correct
-        // per-tab framework before page navigation
-        setTabState(tab.id, { framework: action.framework });
-        // Explicitly persist to sessionStorage before navigation to avoid
-        // race with Vite server restart / page unload
-        patchTabUIState(tab.id, getTabState(tab.id));
-        switchFramework(action.framework, tab.id).then(result => {
-          if (!result.success) {
-            setFramework(previousFramework);
-            setTabState(tab.id, { framework: previousFramework });
-            patchTabUIState(tab.id, getTabState(tab.id));
-            addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` });
-          }
+        executeFrameworkSwitch(tab.id, action.framework, previousFramework, {
+          setFramework,
+          addToHistory,
         });
         break;
       }

@@ -16,14 +16,22 @@ The frontend provides a terminal-style UI where users input package data and rec
 ```
 src/
   core/               # Shared logic (framework-agnostic)
-    calculations.ts   # Core library wrappers
     calculationRunner.ts  # API-first runner with local fallback
+    resultBuilders.ts     # Shared result/history/tab-update builders
+    commandHandlers.ts    # Individual command handler functions
+    terminalCommands.ts   # Command dispatcher (routes to handlers)
+    frameworkSwitcher.ts  # Framework switching (dev + production)
+    frameworkSwitchOrchestrator.ts  # Shared switch-framework orchestration
     tabStateManager.ts    # Tab state management
     sessionPersistence.ts # sessionStorage save/load + patchTabUIState
-    frameworkSwitcher.ts  # Framework switching (dev + production)
     urlHelpers.ts         # URL parsing/sync (/<framework>/<tabId>)
+    helpTextParser.ts     # Terminal help text parser
+    historyUtils.ts       # Command history utilities
+    offerFormatters.ts    # Offer display formatting
+    terminalHelpers.ts    # Sort, discount, scroll, resize helpers
     constants.ts          # Shared constants (DEFAULT_FRAMEWORK, etc.)
     types.ts              # Shared TypeScript types
+    utils.ts              # Re-exports (backward compatibility)
   react/              # React implementation
   vue/                # Vue implementation
   svelte/             # Svelte implementation
@@ -116,8 +124,14 @@ The app works without the API running — calculations fall back to local mode a
 ## Testing
 
 ```bash
-npm test        # runs vitest
+npm test        # runs vitest (220 tests across 17 test files)
 ```
+
+Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:
+
+- **Core modules** — command handlers, calculation runner, result builders, session persistence, tab state, URL helpers, framework switching, terminal helpers
+- **Component tests** — TerminalApp tab management, session restore, UI interactions
+- **Edge cases** — quota exceeded, malformed JSON, division by zero, scroll boundaries
 
 Tests mock `fetch` to simulate API unavailability, verifying local fallback behavior.
 

@@ -7,9 +7,7 @@ import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/consta
 import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
-import { switchFramework } from '../../core/frameworkSwitcher'
-import { getTabState, setTabState } from '../../core/tabStateManager'
-import { patchTabUIState } from '../../core/sessionPersistence'
+import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
 import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
 import { useSession } from '../sessionStore'
 
@@ -96,20 +94,9 @@ function handleCommand(cmd: string): boolean {
     case 'switch-framework': {
       const previousFramework = framework.value
       action.historyEntries.forEach(e => addToHistory(e))
-      framework.value = action.framework
-      // Update tab state synchronously so beforeunload persists the correct
-      // per-tab framework before page navigation
-      setTabState(props.tab.id, { framework: action.framework })
-      // Explicitly persist to sessionStorage before navigation to avoid
-      // race with Vite server restart / page unload
-      patchTabUIState(props.tab.id, getTabState(props.tab.id))
-      switchFramework(action.framework, props.tab.id).then(result => {
-        if (!result.success) {
-          framework.value = previousFramework
-          setTabState(props.tab.id, { framework: previousFramework })
-          patchTabUIState(props.tab.id, getTabState(props.tab.id))
-          addToHistory({ type: 'error', content: `✗ Switch failed: ${result.message}` })
-        }
+      executeFrameworkSwitch(props.tab.id, action.framework, previousFramework, {
+        setFramework: (fw) => { framework.value = fw },
+        addToHistory,
       })
       break
     }

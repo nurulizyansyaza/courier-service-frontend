@@ -11,6 +11,16 @@ export interface PersistedSession {
   tabUIStates: Record<string, TabUIState>;
 }
 
+/** Trim history entries in all tab UI states to prevent exceeding storage quota */
+function trimTabHistories(tabUIStates: Record<string, TabUIState>): Record<string, TabUIState> {
+  return Object.fromEntries(
+    Object.entries(tabUIStates).map(([id, state]) => [
+      id,
+      { ...state, history: state.history.slice(-MAX_HISTORY_PER_TAB) },
+    ]),
+  );
+}
+
 /**
  * Save session state to sessionStorage.
  * Uses sessionStorage so data persists across same-tab navigations (framework
@@ -18,32 +28,18 @@ export interface PersistedSession {
  * Caps history entries per tab to prevent exceeding the ~5 MB quota.
  */
 export function saveSession(session: PersistedSession): void {
+  const trimmed: PersistedSession = {
+    ...session,
+    tabUIStates: trimTabHistories(session.tabUIStates),
+  };
   try {
-    const trimmed: PersistedSession = {
-      ...session,
-      tabUIStates: Object.fromEntries(
-        Object.entries(session.tabUIStates).map(([id, state]) => [
-          id,
-          { ...state, history: state.history.slice(-MAX_HISTORY_PER_TAB) },
-        ]),
-      ),
-    };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
-    // quota exceeded — clear and retry with trimmed payload
     try {
       sessionStorage.removeItem(STORAGE_KEY);
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-        ...session,
-        tabUIStates: Object.fromEntries(
-          Object.entries(session.tabUIStates).map(([id, state]) => [
-            id,
-            { ...state, history: state.history.slice(-MAX_HISTORY_PER_TAB) },
-          ]),
-        ),
-      }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
     } catch {
-      // still failing — silently degrade
+      // silently degrade
     }
   }
 }

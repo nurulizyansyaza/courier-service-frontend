@@ -4,6 +4,12 @@ import {
   calculateDeliveryTimeWithTransit,
   parseOutput,
 } from '@nurulizyansyaza/courier-service-core';
+import {
+  buildResultHistory,
+  buildCostTabUpdates,
+  buildTimeTabUpdates,
+  buildFailureResult,
+} from './resultBuilders';
 
 export interface CalculationSuccess {
   success: true;
@@ -21,79 +27,79 @@ export interface CalculationFailure {
 
 export type CalculationResult = CalculationSuccess | CalculationFailure;
 
+async function fetchCostFromApi(input: string): Promise<{ output: string; parsedResults: ParsedResult[] } | null> {
+  const res = await fetch('/api/cost', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input }),
+  });
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const output = (data.results as Array<{ id: string; discount: number; cost: number }>)
+    .map(r => `${r.id} ${r.discount} ${r.cost}`)
+    .join('\n');
+  return { output, parsedResults: parseOutput(output, 'cost', input, []) };
+}
+
+async function fetchTimeFromApi(
+  input: string,
+  transitPackages: TransitPackage[],
+): Promise<{
+  output: string;
+  parsedResults: ParsedResult[];
+  updatedTransit: TransitPackage[];
+  renamedPackages?: { oldId: string; newId: string }[];
+} | null> {
+  const res = await fetch('/api/delivery/transit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input, transitPackages }),
+  });
+
+  if (!res.ok) return null;
+
+  const data = await res.json() as {
+    output: string;
+    stillInTransit: TransitPackage[];
+    newTransitPackages: TransitPackage[];
+    renamedPackages?: Record<string, string>;
+  };
+  const updatedTransit = [...(data.stillInTransit || []), ...(data.newTransitPackages || [])];
+  const parsedResults = parseOutput(data.output, 'time', input, transitPackages);
+  const renamedPackages = data.renamedPackages
+    ? Object.entries(data.renamedPackages).map(([oldId, newId]) => ({ oldId, newId }))
+    : undefined;
+  return { output: data.output, parsedResults, updatedTransit, renamedPackages };
+}
+
 async function runViaApi(
   input: string,
   calculationType: CalculationType,
   transitPackages: TransitPackage[],
 ): Promise<CalculationResult | null> {
   try {
-    const url = calculationType === 'cost' ? '/api/cost' : '/api/delivery/transit';
-    const body: Record<string, unknown> = { input };
-    if (calculationType === 'time') {
-      body.transitPackages = transitPackages;
-    }
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      return {
-        success: false,
-        errorMsg: data.error || `API error ${res.status}`,
-        historyEntries: [{ type: 'error', content: data.error || `API error ${res.status}` }],
-        tabUpdates: { output: '', error: data.error, hasExecuted: true },
-      };
-    }
-
-    const data = await res.json();
-
     if (calculationType === 'cost') {
-      const output = (data.results as Array<{ id: string; discount: number; cost: number }>)
-        .map(r => `${r.id} ${r.discount} ${r.cost}`)
-        .join('\n');
-      const parsedResults = parseOutput(output, 'cost', input, []);
+      const result = await fetchCostFromApi(input);
+      if (!result) return buildFailureResult('API error');
       return {
         success: true,
-        output,
-        historyEntries: [
-          { type: 'output', content: output },
-          { type: 'result', content: '', parsedResults, calculationType: 'cost' },
-        ],
-        tabUpdates: { output, error: '', hasExecuted: true },
+        output: result.output,
+        historyEntries: buildResultHistory(result.output, result.parsedResults, 'cost'),
+        tabUpdates: buildCostTabUpdates(result.output),
       };
     } else {
-      const transitResult = data as {
-        output: string;
-        stillInTransit: TransitPackage[];
-        newTransitPackages: TransitPackage[];
-        renamedPackages?: Record<string, string>;
-      };
-      const updatedTransit = [...(transitResult.stillInTransit || []), ...(transitResult.newTransitPackages || [])];
-      const parsedResults = parseOutput(transitResult.output, 'time', input, transitPackages);
-      const renamedArr = transitResult.renamedPackages
-        ? Object.entries(transitResult.renamedPackages).map(([oldId, newId]) => ({ oldId, newId }))
-        : undefined;
+      const result = await fetchTimeFromApi(input, transitPackages);
+      if (!result) return buildFailureResult('API error');
       return {
         success: true,
-        output: transitResult.output,
-        historyEntries: [
-          { type: 'output', content: transitResult.output },
-          { type: 'result', content: '', parsedResults, calculationType: 'time' },
-        ],
-        tabUpdates: {
-          output: transitResult.output, error: '', hasExecuted: true,
-          transitPackages: updatedTransit,
-          executionTransitSnapshot: [...transitPackages],
-          renamedPackages: renamedArr,
-        },
+        output: result.output,
+        historyEntries: buildResultHistory(result.output, result.parsedResults, 'time'),
+        tabUpdates: buildTimeTabUpdates(result.output, result.updatedTransit, transitPackages, result.renamedPackages),
       };
     }
   } catch {
-    // Network error — fall back to local
     return null;
   }
 }
@@ -104,16 +110,13 @@ function runLocally(
   transitPackages: TransitPackage[],
 ): CalculationResult {
   if (calculationType === 'cost') {
-    const result = calculateDeliveryCost(input);
-    const parsedResults = parseOutput(result, 'cost', input, []);
+    const output = calculateDeliveryCost(input);
+    const parsedResults = parseOutput(output, 'cost', input, []);
     return {
       success: true,
-      output: result,
-      historyEntries: [
-        { type: 'output', content: result },
-        { type: 'result', content: '', parsedResults, calculationType: 'cost' },
-      ],
-      tabUpdates: { output: result, error: '', hasExecuted: true },
+      output,
+      historyEntries: buildResultHistory(output, parsedResults, 'cost'),
+      tabUpdates: buildCostTabUpdates(output),
     };
   } else {
     const transitResult = calculateDeliveryTimeWithTransit(input, transitPackages);
@@ -122,16 +125,8 @@ function runLocally(
     return {
       success: true,
       output: transitResult.output,
-      historyEntries: [
-        { type: 'output', content: transitResult.output },
-        { type: 'result', content: '', parsedResults, calculationType: 'time' },
-      ],
-      tabUpdates: {
-        output: transitResult.output, error: '', hasExecuted: true,
-        transitPackages: updatedTransit,
-        executionTransitSnapshot: [...transitPackages],
-        renamedPackages: transitResult.renamedPackages,
-      },
+      historyEntries: buildResultHistory(transitResult.output, parsedResults, 'time'),
+      tabUpdates: buildTimeTabUpdates(transitResult.output, updatedTransit, transitPackages, transitResult.renamedPackages),
     };
   }
 }
@@ -146,20 +141,12 @@ export async function runCalculation(
   calculationType: CalculationType,
   transitPackages: TransitPackage[],
 ): Promise<CalculationResult> {
-  // Try API first
   const apiResult = await runViaApi(input, calculationType, transitPackages);
   if (apiResult) return apiResult;
 
-  // Fallback to local calculation
   try {
     return runLocally(input, calculationType, transitPackages);
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : 'Invalid input';
-    return {
-      success: false,
-      errorMsg,
-      historyEntries: [{ type: 'error', content: errorMsg }],
-      tabUpdates: { output: '', error: errorMsg, hasExecuted: true },
-    };
+    return buildFailureResult(err instanceof Error ? err.message : 'Invalid input');
   }
 }

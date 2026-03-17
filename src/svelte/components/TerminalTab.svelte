@@ -7,7 +7,7 @@
   import { processCommand } from '../../core/terminalCommands'
   import { runCalculation } from '../../core/calculationRunner'
   import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
-  import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines } from '../../core/terminalHelpers'
+  import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from '../../core/terminalHelpers'
   import { getTabState, setTabState } from '../../core/tabStateManager'
   import { CommandHistoryNavigator } from '../../core/commandHistory'
   import { useSession } from '../sessionStore.svelte'
@@ -89,6 +89,9 @@
       cmdHistory.resetCursor()
       tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
     } else if (e.key === 'ArrowUp') {
+      if (inputRef && currentInput.includes('\n') && !isCursorOnFirstLine(inputRef)) {
+        return
+      }
       e.preventDefault()
       const prev = cmdHistory.navigateUp(currentInput)
       if (prev !== null) {
@@ -96,6 +99,9 @@
         tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
       }
     } else if (e.key === 'ArrowDown') {
+      if (inputRef && currentInput.includes('\n') && !isCursorOnLastLine(inputRef)) {
+        return
+      }
       e.preventDefault()
       const next = cmdHistory.navigateDown()
       currentInput = next

@@ -21,7 +21,7 @@ import { runCalculation } from "../../core/calculationRunner";
 import { executeFrameworkSwitch } from "../../core/frameworkSwitchOrchestrator";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
-import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines } from "../../core/terminalHelpers";
+import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
 import { CommandHistoryNavigator } from "../../core/commandHistory";
 import { useSession } from "../sessionStore";
@@ -366,6 +366,11 @@ export function TerminalTab({
                 cmdHistory.resetCursor();
                 if (inputRef.current) { inputRef.current.value = ""; resizeTextarea(inputRef.current); }
               } else if (e.key === "ArrowUp") {
+                const ta = inputRef.current;
+                if (ta && currentInput.includes('\n') && !isCursorOnFirstLine(ta)) {
+                  // Let browser handle cursor movement within multi-line input
+                  return;
+                }
                 e.preventDefault();
                 const prev = cmdHistory.navigateUp(currentInput);
                 if (prev !== null) {
@@ -373,6 +378,11 @@ export function TerminalTab({
                   if (inputRef.current) { inputRef.current.value = prev; resizeTextarea(inputRef.current); }
                 }
               } else if (e.key === "ArrowDown") {
+                const ta = inputRef.current;
+                if (ta && currentInput.includes('\n') && !isCursorOnLastLine(ta)) {
+                  // Let browser handle cursor movement within multi-line input
+                  return;
+                }
                 e.preventDefault();
                 const next = cmdHistory.navigateDown();
                 setCurrentInput(next);

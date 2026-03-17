@@ -8,7 +8,7 @@ import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
-import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines } from '../../core/terminalHelpers'
+import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from '../../core/terminalHelpers'
 import { getTabState, setTabState } from '../../core/tabStateManager'
 import { CommandHistoryNavigator } from '../../core/commandHistory'
 import { useSession } from '../sessionStore'
@@ -192,6 +192,10 @@ function handleKeyDown(e: KeyboardEvent) {
     cmdHistory.resetCursor()
     nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
   } else if (e.key === 'ArrowUp') {
+    const ta = inputRef.value
+    if (ta && currentInput.value.includes('\n') && !isCursorOnFirstLine(ta)) {
+      return
+    }
     e.preventDefault()
     const prev = cmdHistory.navigateUp(currentInput.value)
     if (prev !== null) {
@@ -199,6 +203,10 @@ function handleKeyDown(e: KeyboardEvent) {
       nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
     }
   } else if (e.key === 'ArrowDown') {
+    const ta = inputRef.value
+    if (ta && currentInput.value.includes('\n') && !isCursorOnLastLine(ta)) {
+      return
+    }
     e.preventDefault()
     const next = cmdHistory.navigateDown()
     currentInput.value = next

@@ -51,3 +51,13 @@ export function inputNeedsMoreLines(input: string, calculationType: 'cost' | 'ti
   const expected = pkgCount + 1 + (calculationType === 'time' ? 1 : 0);
   return lines.length < expected;
 }
+
+/** True when the textarea cursor sits on the very first line */
+export function isCursorOnFirstLine(textarea: HTMLTextAreaElement): boolean {
+  return textarea.value.lastIndexOf('\n', textarea.selectionStart - 1) === -1;
+}
+
+/** True when the textarea cursor sits on the very last line */
+export function isCursorOnLastLine(textarea: HTMLTextAreaElement): boolean {
+  return textarea.value.indexOf('\n', textarea.selectionStart) === -1;
+}

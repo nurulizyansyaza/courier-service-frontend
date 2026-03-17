@@ -81,7 +81,9 @@ The frontend provides a terminal-style UI where users input package data and rec
 | `help` | Show available commands |
 | `exit` | Exit and reset terminal |
 | `/connect` | Reconnect after exit |
-| `↑` / `↓` | Navigate through previous command history |
+| `Shift+Enter` | Add new line (multi-line input) |
+| `Enter` | Submit input — or auto-add new line if more package lines are expected |
+| `↑` / `↓` | Navigate command history (first/last line) or move cursor between lines (mid-line) |
 | `Ctrl+C` | Clear current input |
 
 ### Error Display
@@ -89,6 +91,16 @@ The frontend provides a terminal-style UI where users input package data and rec
 Error messages are displayed with line breaks — each error appears on its own line with a bullet prefix (•) and spacing between them, rather than as a single block of text.
 
 Errors are collected across **all input lines** — every error is shown at once so you can fix everything in a single pass. Typo'd commands (e.g., `hlp`, `clera`, `/connec`) are detected and suggest the closest matching command.
+
+### Multi-Line Input
+
+The terminal supports intelligent multi-line input for package data:
+
+- **Smart Enter** — if the header line declares more packages than currently entered, pressing Enter inserts a new line instead of submitting. Once all expected lines are present, Enter submits as normal
+- **Shift+Enter** — always inserts a new line, regardless of expected package count
+- **Arrow key navigation** — ↑/↓ move the cursor between lines within multi-line input. History navigation only triggers when the cursor is on the first line (↑) or last line (↓)
+- **❯ prompt tracking** — the `❯` prompt follows the cursor line as you navigate within multi-line input
+- **History recall** — recalling a multi-line entry from history loads it into the textarea; you can edit and add lines before submitting
 
 ### Command History
 

@@ -737,7 +737,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
       <!-- Input line -->
       <div class="flex gap-2 items-start">
-        <span ref="promptRef" class="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
+        <span ref="promptRef" class="text-pink-400 select-none leading-tight text-sm transition-transform duration-75">❯</span>
         <textarea
           ref="inputRef"
           v-model="currentInput"

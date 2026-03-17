@@ -73,6 +73,8 @@ export function updatePromptPosition(
   if (!textarea || !prompt) return;
   const before = textarea.value.substring(0, textarea.selectionStart);
   const line = (before.match(/\n/g) || []).length;
-  const lh = parseFloat(getComputedStyle(textarea).lineHeight) || 17.5;
-  prompt.style.transform = `translateY(${line * lh}px)`;
+  const style = getComputedStyle(textarea);
+  const lh = parseFloat(style.lineHeight) || 17.5;
+  const pt = parseFloat(style.paddingTop) || 0;
+  prompt.style.transform = `translateY(${pt + line * lh}px)`;
 }

@@ -554,7 +554,7 @@
 
     <!-- Input line -->
     <div class="flex gap-2 items-start">
-      <span bind:this={promptRef} class="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
+      <span bind:this={promptRef} class="text-pink-400 select-none leading-tight text-sm transition-transform duration-75">❯</span>
       <textarea
         bind:this={inputRef}
         value={currentInput}

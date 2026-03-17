@@ -344,7 +344,7 @@ export function TerminalTab({
 
         {/* Input line */}
         <div className="flex gap-2 items-start">
-          <span ref={promptRef} className="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
+          <span ref={promptRef} className="text-pink-400 select-none leading-tight text-sm transition-transform duration-75">❯</span>
           <textarea
             ref={inputRef}
             value={currentInput}

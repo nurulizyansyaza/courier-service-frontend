@@ -117,7 +117,16 @@ function handleCommand(cmd: string): boolean {
       }, 50)
       break
     case 'restart':
-      addToHistory(action.historyEntries[0])
+      history.value = [{ type: 'welcome', content: 'restart', timestamp: Date.now() }]
+      showWelcome.value = true
+      emit('update', {
+        calculationType: 'cost',
+        input: '', output: '', error: '',
+        hasExecuted: false,
+        transitPackages: [],
+        executionTransitSnapshot: [],
+        renamedPackages: [],
+      })
       break
     case 'help':
       addToHistory(action.historyEntries[0])
@@ -544,7 +553,7 @@ function handleKeyDown(e: KeyboardEvent) {
                   history)
                 </div>
                 <div>
-                  <span class="text-cyan-400">/restart</span> - Show welcome screen again
+                  <span class="text-cyan-400">/restart</span> - Show welcome screen again and reset session
                 </div>
                 <div>
                   <span class="text-cyan-400">help</span> - Show available commands
@@ -583,7 +592,7 @@ function handleKeyDown(e: KeyboardEvent) {
                   history)
                 </div>
                 <div>
-                  <span class="text-cyan-400">/restart</span> - Show welcome screen again
+                  <span class="text-cyan-400">/restart</span> - Show welcome screen again and reset session
                 </div>
                 <div>
                   <span class="text-cyan-400">help</span> - Show available commands

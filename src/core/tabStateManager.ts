@@ -1,4 +1,5 @@
 import type { HistoryEntry, Framework } from './types';
+import { DEFAULT_FRAMEWORK } from './constants';
 
 export interface TabUIState {
   currentInput: string;
@@ -12,18 +13,14 @@ export interface TabUIState {
 
 const tabStates = new Map<string, TabUIState>();
 
-function getDefaultFramework(): Framework {
-  if (typeof __FRAMEWORK__ !== 'undefined') return __FRAMEWORK__;
-  return 'react';
-}
-
+// New tabs always start with React regardless of which framework build is loaded
 function createDefaultState(): TabUIState {
   return {
     currentInput: '',
     history: [
       { type: 'welcome', content: 'initial', timestamp: Date.now() },
     ],
-    framework: getDefaultFramework(),
+    framework: DEFAULT_FRAMEWORK,
     isGenerating: false,
     showWelcome: true,
     shouldAutoScroll: true,

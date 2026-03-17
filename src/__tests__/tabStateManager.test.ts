@@ -34,11 +34,11 @@ describe('tabStateManager', () => {
       expect(getTabState('tab-1').currentInput).toBe('hello');
     });
 
-    it('uses __FRAMEWORK__ global when available', () => {
+    it('always defaults to react regardless of __FRAMEWORK__ global', () => {
       (globalThis as any).__FRAMEWORK__ = 'vue';
       clearTabState();
       const state = getTabState('tab-1');
-      expect(state.framework).toBe('vue');
+      expect(state.framework).toBe('react');
       delete (globalThis as any).__FRAMEWORK__;
     });
   });

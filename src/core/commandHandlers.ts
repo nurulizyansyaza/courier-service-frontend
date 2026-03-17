@@ -101,7 +101,10 @@ export function handleClear(cmd: string): CommandAction {
 }
 
 export function handleRestart(): CommandAction {
-  return { type: 'restart', historyEntries: [{ type: 'welcome', content: 'restart' }] };
+  return {
+    type: 'restart',
+    historyEntries: [{ type: 'welcome', content: 'restart' }],
+  };
 }
 
 export function handleHelp(): CommandAction {

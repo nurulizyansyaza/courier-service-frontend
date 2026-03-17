@@ -64,7 +64,7 @@ The frontend automatically proxies `/api/*` requests to `http://localhost:3000`.
 npm test
 ```
 
-You should see all **248 tests** pass across **18 test suites**.
+You should see all **257 tests** pass across **18 test suites**.
 
 ## Architecture
 
@@ -77,7 +77,7 @@ The frontend provides a terminal-style UI where users input package data and rec
 | `/change use react \| vue \| svelte` | Switch framework |
 | `/change mode cost \| time` | Switch calculation mode |
 | `clear` | Clear screen (scroll up to see history) |
-| `/restart` | Show welcome screen again |
+| `/restart` | Restart terminal — clears history, resets session, shows welcome screen |
 | `help` | Show available commands |
 | `exit` | Exit and reset terminal |
 | `/connect` | Reconnect after exit |
@@ -209,6 +209,15 @@ Tab IDs are sequential integers (1, 2, 3, …) for clean, readable URLs.
 - **Page reload** — in production, CloudFront serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`. Each tab's framework label is restored independently from the persisted session.
 - **Fresh session (browser close → reopen)** — `sessionStorage` is cleared when the browser closes, so a new session starts with the default framework (`react`) and one tab. If the URL or dev server was left on a non-default framework, the app automatically resets by switching back to the default.
 
+### Tab Independence
+
+Each terminal tab operates as a fully isolated session:
+
+- **Independent state** — history, input, framework, mode, transit packages, and connection status are all per-tab
+- **Default framework** — new tabs always start with React (`DEFAULT_FRAMEWORK`), regardless of which framework the current tab is using
+- **Framework switching** — using `/change use vue` on one tab only changes that tab's framework; other tabs keep their current framework
+- **`/restart` command** — fully resets the current tab: clears history, shows the welcome screen, resets mode to cost, and clears all input/output/transit state. Other tabs are unaffected
+
 ### Session Persistence
 
 ```mermaid
@@ -266,7 +275,7 @@ The app works without the API running — calculations fall back to local mode a
 npm test
 ```
 
-You should see all **248 tests** pass across **18 test suites**.
+You should see all **257 tests** pass across **18 test suites**.
 
 Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:
 

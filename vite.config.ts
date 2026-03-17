@@ -48,6 +48,14 @@ export default defineConfig(async () => {
           changeOrigin: true,
         },
       },
+      watch: {
+        usePolling: true,
+      },
+      hmr: {
+        // In Docker, the client connects from the host browser
+        // so HMR WebSocket must use the host-mapped port
+        clientPort: Number(process.env.VITE_HMR_PORT) || undefined,
+      },
     },
   };
 });

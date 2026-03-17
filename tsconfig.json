@@ -29,6 +29,7 @@
   "include": [
     "src/core",
     "src/vue",
+    "src/svelte",
     "src/vite-env.d.ts"
   ]
 }

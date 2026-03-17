@@ -119,6 +119,81 @@ describe('processCommand', () => {
         expect(result.historyEntries[0].content).toContain('Invalid /change');
       }
     });
+
+    it('returns invalid-change for /change without subcommand', () => {
+      const result = processCommand('/change', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('invalid-change');
+    });
+
+    it('returns invalid-change for partial /change mode', () => {
+      const result = processCommand('/change mod', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('invalid-change');
+    });
+  });
+
+  describe('unknown slash commands', () => {
+    it('returns unknown-command for unknown / commands', () => {
+      const result = processCommand('/blah', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].type).toBe('error');
+        expect(result.historyEntries[0].content).toContain('/blah');
+      }
+    });
+
+    it('suggests similar slash command for typos', () => {
+      const result = processCommand('/connec', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].content).toContain('Did you mean "/connect"');
+      }
+    });
+
+    it('suggests /restart for /restar', () => {
+      const result = processCommand('/restar', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].content).toContain('Did you mean "/restart"');
+      }
+    });
+  });
+
+  describe('typo suggestions for text commands', () => {
+    it('suggests "help" for "hlp"', () => {
+      const result = processCommand('hlp', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].content).toContain('Did you mean "help"');
+      }
+    });
+
+    it('suggests "clear" for "clera"', () => {
+      const result = processCommand('clera', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].content).toContain('Did you mean "clear"');
+      }
+    });
+
+    it('suggests "exit" for "exti"', () => {
+      const result = processCommand('exti', true);
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe('unknown-command');
+      if (result!.type === 'unknown-command') {
+        expect(result.historyEntries[0].content).toContain('Did you mean "exit"');
+      }
+    });
+
+    it('returns null for unrelated input', () => {
+      expect(processCommand('100 3\nPKG1 5 5 OFR001', true)).toBeNull();
+    });
   });
 
   describe('clear', () => {

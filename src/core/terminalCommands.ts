@@ -5,6 +5,7 @@ import {
   handleChangeUse,
   handleChangeMode,
   handleInvalidChange,
+  handleUnknownCommand,
   handleClear,
   handleRestart,
   handleHelp,
@@ -24,7 +25,44 @@ export type CommandAction =
   | { type: 'exit'; tabUpdates: Partial<TabData> }
   | { type: 'unknown-framework'; historyEntries: HistoryEntry[] }
   | { type: 'unknown-mode'; historyEntries: HistoryEntry[] }
+  | { type: 'unknown-command'; historyEntries: HistoryEntry[] }
   | null;
+
+const TEXT_COMMANDS = ['clear', 'help', 'exit'];
+const SLASH_COMMANDS = ['/connect', '/restart', '/change'];
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1]
+        ? prev
+        : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+function findSimilarCommand(input: string, commands: string[]): string | null {
+  let bestMatch = '';
+  let bestDistance = Infinity;
+  for (const cmd of commands) {
+    const dist = levenshtein(input, cmd);
+    if (dist < bestDistance) {
+      bestDistance = dist;
+      bestMatch = cmd;
+    }
+  }
+  if (bestDistance > 0 && bestDistance <= 2 && input.length >= bestMatch.length / 2) {
+    return bestMatch;
+  }
+  return null;
+}
 
 export function processCommand(cmd: string, isConnected: boolean): CommandAction {
   const trimmed = cmd.trim();
@@ -44,6 +82,18 @@ export function processCommand(cmd: string, isConnected: boolean): CommandAction
   if (lower === '/restart') return handleRestart();
   if (lower === 'help') return handleHelp();
   if (lower === 'exit') return handleExit();
+
+  if (lower.startsWith('/change')) return handleInvalidChange();
+
+  if (lower.startsWith('/')) {
+    const suggestion = findSimilarCommand(lower, SLASH_COMMANDS);
+    return handleUnknownCommand(trimmed, suggestion);
+  }
+
+  const suggestion = findSimilarCommand(lower, TEXT_COMMANDS);
+  if (suggestion) {
+    return handleUnknownCommand(trimmed, suggestion);
+  }
 
   return null;
 }

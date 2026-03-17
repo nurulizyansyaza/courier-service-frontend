@@ -88,6 +88,8 @@ The frontend provides a terminal-style UI where users input package data and rec
 
 Error messages are displayed with line breaks — each error appears on its own line with a bullet prefix (•) and spacing between them, rather than as a single block of text.
 
+Errors are validated **line by line** — only the first problematic line's errors are shown, so you can fix one thing at a time. Typo'd commands (e.g., `hlp`, `clera`, `/connec`) are detected and suggest the closest matching command.
+
 ### Command History
 
 The terminal supports **real CLI-style command history navigation** using the up/down arrow keys:

@@ -83,6 +83,19 @@ export function handleInvalidChange(): CommandAction {
   };
 }
 
+export function handleUnknownCommand(cmd: string, suggestion?: string | null): CommandAction {
+  const hint = suggestion
+    ? `Did you mean "${suggestion}"?`
+    : 'Type "help" for available commands';
+  return {
+    type: 'unknown-command',
+    historyEntries: [{
+      type: 'error',
+      content: `Unknown command "${cmd}". ${hint}`,
+    }],
+  };
+}
+
 export function handleClear(cmd: string): CommandAction {
   return { type: 'clear', historyEntries: [{ type: 'clear', content: cmd }] };
 }

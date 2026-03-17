@@ -128,6 +128,7 @@
       case 'unknown-framework':
       case 'unknown-mode':
       case 'invalid-change':
+      case 'unknown-command':
         history = [...history, ...action.historyEntries.map(e => ({ ...e, timestamp: Date.now() }))]
         break
       case 'switch-framework': {

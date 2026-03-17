@@ -92,6 +92,7 @@ function handleCommand(cmd: string): boolean {
     case 'unknown-framework':
     case 'unknown-mode':
     case 'invalid-change':
+    case 'unknown-command':
       action.historyEntries.forEach(e => addToHistory(e))
       break
     case 'switch-framework': {

@@ -89,6 +89,46 @@ describe('parseHelpSections', () => {
     expect(sections[1].title).toBe('Second');
     expect(sections[2].title).toBe('Third');
   });
+
+  it('should exclude lines starting with reserved prefixes from being headers', () => {
+    // Given text with "user " and "offer " prefixed lines ending with ":"
+    const text = [
+      'user login admin:',
+      '  some content',
+      '',
+      'offer list:',
+      '  more content',
+    ].join('\n');
+
+    // When parsed — these are NOT section headers (excluded prefixes)
+    const sections = parseHelpSections(text);
+
+    // Then content is grouped under empty-title sections
+    expect(sections.every(s => s.title === '')).toBe(true);
+  });
+
+  it('should handle text with only blank lines', () => {
+    const sections = parseHelpSections('\n\n\n');
+    expect(sections).toEqual([]);
+  });
+
+  it('should handle consecutive sections without blank line separator', () => {
+    // Given two headers back-to-back with content
+    const text = [
+      'First:',
+      '  line1',
+      'Second:',
+      '  line2',
+    ].join('\n');
+
+    // When parsed
+    const sections = parseHelpSections(text);
+
+    // Then both sections are captured
+    expect(sections).toHaveLength(2);
+    expect(sections[0]).toEqual({ title: 'First', lines: ['line1'] });
+    expect(sections[1]).toEqual({ title: 'Second', lines: ['line2'] });
+  });
 });
 
 describe('formatOfferDist', () => {
@@ -122,5 +162,20 @@ describe('getLastClearIndex', () => {
       { type: 'output', content: 'result' },
     ];
     expect(getLastClearIndex(history)).toBe(2);
+  });
+
+  it('returns 0 when only entry is clear', () => {
+    const history: HistoryEntry[] = [
+      { type: 'clear', content: 'clear' },
+    ];
+    expect(getLastClearIndex(history)).toBe(0);
+  });
+
+  it('returns last index when clear is at the end', () => {
+    const history: HistoryEntry[] = [
+      { type: 'input', content: 'test' },
+      { type: 'clear', content: 'clear' },
+    ];
+    expect(getLastClearIndex(history)).toBe(1);
   });
 });

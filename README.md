@@ -204,7 +204,7 @@ The app works without the API running — calculations fall back to local mode a
 ## Testing
 
 ```bash
-npm test        # runs vitest (243 tests across 18 test files)
+npm test        # runs vitest
 ```
 
 Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:

@@ -34,3 +34,20 @@ export function resizeTextarea(textarea: HTMLTextAreaElement, maxHeight = 160): 
   textarea.style.height = 'auto';
   textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
 }
+
+/**
+ * Check whether a multi-line input still needs more lines before it can be executed.
+ * Parses the header line to determine expected package count, then compares
+ * against actual non-empty lines. Returns true if Enter should add a newline
+ * instead of executing.
+ */
+export function inputNeedsMoreLines(input: string, calculationType: 'cost' | 'time'): boolean {
+  const lines = input.split('\n').filter(l => l.trim());
+  if (lines.length < 1) return false;
+  const headerParts = lines[0].trim().split(/\s+/);
+  if (headerParts.length < 2) return false;
+  const pkgCount = parseInt(headerParts[1], 10);
+  if (isNaN(pkgCount) || pkgCount < 1) return false;
+  const expected = pkgCount + 1 + (calculationType === 'time' ? 1 : 0);
+  return lines.length < expected;
+}

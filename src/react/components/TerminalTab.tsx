@@ -21,7 +21,7 @@ import { runCalculation } from "../../core/calculationRunner";
 import { executeFrameworkSwitch } from "../../core/frameworkSwitchOrchestrator";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
-import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea } from "../../core/terminalHelpers";
+import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
 import { CommandHistoryNavigator } from "../../core/commandHistory";
 import { useSession } from "../sessionStore";
@@ -347,6 +347,18 @@ export function TerminalTab({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
+                if (inputNeedsMoreLines(currentInput, tab.calculationType)) {
+                  const ta = inputRef.current;
+                  if (ta) {
+                    const pos = ta.selectionStart;
+                    const newVal = currentInput.slice(0, pos) + '\n' + currentInput.slice(pos);
+                    setCurrentInput(newVal);
+                    ta.value = newVal;
+                    ta.selectionStart = ta.selectionEnd = pos + 1;
+                    resizeTextarea(ta);
+                  }
+                  return;
+                }
                 handleExecute();
               } else if (e.key === "c" && e.ctrlKey && !e.metaKey) {
                 e.preventDefault();

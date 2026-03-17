@@ -8,7 +8,7 @@ import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
-import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea } from '../../core/terminalHelpers'
+import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines } from '../../core/terminalHelpers'
 import { getTabState, setTabState } from '../../core/tabStateManager'
 import { CommandHistoryNavigator } from '../../core/commandHistory'
 import { useSession } from '../sessionStore'
@@ -170,6 +170,21 @@ function handleExecute() {
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
+    if (inputNeedsMoreLines(currentInput.value, props.tab.calculationType)) {
+      const ta = inputRef.value
+      if (ta) {
+        const pos = ta.selectionStart
+        const newVal = currentInput.value.slice(0, pos) + '\n' + currentInput.value.slice(pos)
+        currentInput.value = newVal
+        nextTick(() => {
+          if (inputRef.value) {
+            inputRef.value.selectionStart = inputRef.value.selectionEnd = pos + 1
+            resizeTextarea(inputRef.value)
+          }
+        })
+      }
+      return
+    }
     handleExecute()
   } else if (e.key === 'c' && e.ctrlKey && !e.metaKey) {
     e.preventDefault()

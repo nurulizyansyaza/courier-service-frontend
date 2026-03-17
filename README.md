@@ -1,13 +1,70 @@
 # @nurulizyansyaza/courier-service-frontend
 
-Multi-framework frontend dashboard for the **Courier Service** App Calculator. Supports React, Vue, and Svelte with hot-swappable framework switching.
+Multi-framework frontend dashboard for the **Courier Service** App Calculator. Supports React, Vue and Svelte with hot swappable framework switching.
 
 ## Setup
 
+### Prerequisites
+
+- **Node.js** 18 or 20 — check with `node --version`
+- **npm** — check with `npm --version`
+- **courier-service-core** must be built first (see below)
+
+### Step 1 — Build the core library first
+
+The frontend depends on the core library. If you haven't built it yet:
+
 ```bash
+cd courier-service-core
 npm install
-npm run dev     # starts Vite dev server on http://localhost:5173
+npm run build
+cd ..
 ```
+
+### Step 2 — Install dependencies
+
+```bash
+cd courier-service-frontend
+npm install
+```
+
+### Step 3 — Start the dev server
+
+```bash
+npm run dev
+```
+
+Open your browser and go to `http://localhost:5173`.
+
+> **Tip:** The frontend works without the API running — it falls back to local calculations using the core library.
+
+### Using with the API (optional)
+
+If you want the frontend to connect to the API, you need **two terminals**:
+
+**Terminal 1** — Start the API:
+
+```bash
+cd courier-service-api
+npm run dev
+```
+
+**Terminal 2** — Start the frontend:
+
+```bash
+cd courier-service-frontend
+npm run dev
+```
+
+The frontend automatically proxies `/api/*` requests to `http://localhost:3000`. If the API is unreachable, calculations fall back to local mode.
+
+### Step 4 — Run the tests
+
+```bash
+npm test
+```
+
+You should see all **248 tests** pass across **18 test suites**.
 
 ## Architecture
 
@@ -204,8 +261,10 @@ The app works without the API running — calculations fall back to local mode a
 ## Testing
 
 ```bash
-npm test        # runs vitest
+npm test
 ```
+
+You should see all **248 tests** pass across **18 test suites**.
 
 Tests use BDD-style naming (`describe('when [scenario]') / it('should [behavior]')`) and cover:
 

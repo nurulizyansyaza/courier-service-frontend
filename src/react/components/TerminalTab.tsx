@@ -21,7 +21,7 @@ import { runCalculation } from "../../core/calculationRunner";
 import { executeFrameworkSwitch } from "../../core/frameworkSwitchOrchestrator";
 import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from "../../core/constants";
 import { getLastClearIndex } from "../../core/utils";
-import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from "../../core/terminalHelpers";
+import { sortDeliveryResults, getDiscountPercent as calcDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine, updatePromptPosition } from "../../core/terminalHelpers";
 import { getTabState, setTabState } from "../../core/tabStateManager";
 import { CommandHistoryNavigator } from "../../core/commandHistory";
 import { useSession } from "../sessionStore";
@@ -36,6 +36,7 @@ export function TerminalTab({
   onUpdate,
 }: TerminalTabProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const promptRef = useRef<HTMLSpanElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const clearMarkerRef = useRef<HTMLDivElement>(null);
   const cmdHistoryRef = useRef<CommandHistoryNavigator | null>(null);
@@ -156,7 +157,9 @@ export function TerminalTab({
 
     if (handleCommand(input)) {
       setCurrentInput("");
-      setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+      setTimeout(() => {
+        if (inputRef.current) { resizeTextarea(inputRef.current); updatePromptPosition(inputRef.current, promptRef.current); }
+      }, 0);
       return;
     }
 
@@ -170,7 +173,9 @@ export function TerminalTab({
       onUpdate(result.tabUpdates);
       setIsGenerating(false);
       setCurrentInput("");
-      setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+      setTimeout(() => {
+        if (inputRef.current) { resizeTextarea(inputRef.current); updatePromptPosition(inputRef.current, promptRef.current); }
+      }, 0);
     }, 350);
   };
 
@@ -338,8 +343,8 @@ export function TerminalTab({
         )}
 
         {/* Input line */}
-        <div className="flex gap-2">
-          <span className="text-pink-400 select-none">❯</span>
+        <div className="flex gap-2 items-start">
+          <span ref={promptRef} className="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
           <textarea
             ref={inputRef}
             value={currentInput}
@@ -356,6 +361,7 @@ export function TerminalTab({
                     ta.value = newVal;
                     ta.selectionStart = ta.selectionEnd = pos + 1;
                     resizeTextarea(ta);
+                    updatePromptPosition(ta, promptRef.current);
                   }
                   return;
                 }
@@ -364,31 +370,43 @@ export function TerminalTab({
                 e.preventDefault();
                 setCurrentInput("");
                 cmdHistory.resetCursor();
-                if (inputRef.current) { inputRef.current.value = ""; resizeTextarea(inputRef.current); }
+                if (inputRef.current) {
+                  inputRef.current.value = "";
+                  resizeTextarea(inputRef.current);
+                  updatePromptPosition(inputRef.current, promptRef.current);
+                }
               } else if (e.key === "ArrowUp") {
                 const ta = inputRef.current;
                 if (ta && currentInput.includes('\n') && !isCursorOnFirstLine(ta)) {
-                  // Let browser handle cursor movement within multi-line input
                   return;
                 }
                 e.preventDefault();
                 const prev = cmdHistory.navigateUp(currentInput);
                 if (prev !== null) {
                   setCurrentInput(prev);
-                  if (inputRef.current) { inputRef.current.value = prev; resizeTextarea(inputRef.current); }
+                  if (inputRef.current) {
+                    inputRef.current.value = prev;
+                    resizeTextarea(inputRef.current);
+                    updatePromptPosition(inputRef.current, promptRef.current);
+                  }
                 }
               } else if (e.key === "ArrowDown") {
                 const ta = inputRef.current;
                 if (ta && currentInput.includes('\n') && !isCursorOnLastLine(ta)) {
-                  // Let browser handle cursor movement within multi-line input
                   return;
                 }
                 e.preventDefault();
                 const next = cmdHistory.navigateDown();
                 setCurrentInput(next);
-                if (inputRef.current) { inputRef.current.value = next; resizeTextarea(inputRef.current); }
+                if (inputRef.current) {
+                  inputRef.current.value = next;
+                  resizeTextarea(inputRef.current);
+                  updatePromptPosition(inputRef.current, promptRef.current);
+                }
               }
             }}
+            onKeyUp={() => updatePromptPosition(inputRef.current, promptRef.current)}
+            onClick={() => updatePromptPosition(inputRef.current, promptRef.current)}
             placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}
             className="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto scrollbar-hide leading-tight pt-1"
             spellCheck={false}
@@ -397,6 +415,7 @@ export function TerminalTab({
             style={{ height: 'auto', minHeight: '1.5rem' }}
             onInput={(e) => {
               resizeTextarea(e.target as HTMLTextAreaElement);
+              updatePromptPosition(e.target as HTMLTextAreaElement, promptRef.current);
             }}
           />
         </div>

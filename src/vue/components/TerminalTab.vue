@@ -8,7 +8,7 @@ import { formatOfferDist, getLastClearIndex } from '../../core/utils'
 import { processCommand } from '../../core/terminalCommands'
 import { runCalculation } from '../../core/calculationRunner'
 import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
-import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from '../../core/terminalHelpers'
+import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine, updatePromptPosition } from '../../core/terminalHelpers'
 import { getTabState, setTabState } from '../../core/tabStateManager'
 import { CommandHistoryNavigator } from '../../core/commandHistory'
 import { useSession } from '../sessionStore'
@@ -19,6 +19,7 @@ const emit = defineEmits<{ update: [updates: Partial<TabData>] }>()
 const { session, getOffersForCalculation } = useSession()
 
 const inputRef = ref<HTMLTextAreaElement | null>(null)
+const promptRef = ref<HTMLSpanElement | null>(null)
 const scrollAreaRef = ref<HTMLDivElement | null>(null)
 const clearMarkerRef = ref<HTMLDivElement | null>(null)
 const cmdHistory = new CommandHistoryNavigator(props.tab.id)
@@ -180,6 +181,7 @@ function handleKeyDown(e: KeyboardEvent) {
           if (inputRef.value) {
             inputRef.value.selectionStart = inputRef.value.selectionEnd = pos + 1
             resizeTextarea(inputRef.value)
+            updatePromptPosition(inputRef.value, promptRef.value)
           }
         })
       }
@@ -190,7 +192,12 @@ function handleKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     currentInput.value = ''
     cmdHistory.resetCursor()
-    nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
+    nextTick(() => {
+      if (inputRef.value) {
+        resizeTextarea(inputRef.value)
+        updatePromptPosition(inputRef.value, promptRef.value)
+      }
+    })
   } else if (e.key === 'ArrowUp') {
     const ta = inputRef.value
     if (ta && currentInput.value.includes('\n') && !isCursorOnFirstLine(ta)) {
@@ -200,7 +207,12 @@ function handleKeyDown(e: KeyboardEvent) {
     const prev = cmdHistory.navigateUp(currentInput.value)
     if (prev !== null) {
       currentInput.value = prev
-      nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
+      nextTick(() => {
+        if (inputRef.value) {
+          resizeTextarea(inputRef.value)
+          updatePromptPosition(inputRef.value, promptRef.value)
+        }
+      })
     }
   } else if (e.key === 'ArrowDown') {
     const ta = inputRef.value
@@ -210,7 +222,12 @@ function handleKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     const next = cmdHistory.navigateDown()
     currentInput.value = next
-    nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
+    nextTick(() => {
+      if (inputRef.value) {
+        resizeTextarea(inputRef.value)
+        updatePromptPosition(inputRef.value, promptRef.value)
+      }
+    })
   }
 }
 </script>
@@ -719,13 +736,15 @@ function handleKeyDown(e: KeyboardEvent) {
       </div>
 
       <!-- Input line -->
-      <div class="flex gap-2">
-        <span class="text-pink-400 select-none">❯</span>
+      <div class="flex gap-2 items-start">
+        <span ref="promptRef" class="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
         <textarea
           ref="inputRef"
           v-model="currentInput"
           @keydown="handleKeyDown"
-          @input="(e: Event) => { resizeTextarea(e.target as HTMLTextAreaElement); cmdHistory.resetCursor() }"
+          @keyup="() => updatePromptPosition(inputRef, promptRef)"
+          @click="() => updatePromptPosition(inputRef, promptRef)"
+          @input="(e: Event) => { const t = e.target as HTMLTextAreaElement; resizeTextarea(t); updatePromptPosition(t, promptRef); cmdHistory.resetCursor() }"
           :placeholder="
             isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'
           "

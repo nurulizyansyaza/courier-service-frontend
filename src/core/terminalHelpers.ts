@@ -61,3 +61,18 @@ export function isCursorOnFirstLine(textarea: HTMLTextAreaElement): boolean {
 export function isCursorOnLastLine(textarea: HTMLTextAreaElement): boolean {
   return textarea.value.indexOf('\n', textarea.selectionStart) === -1;
 }
+
+/**
+ * Move a prompt element (❯) to the same line as the textarea cursor.
+ * Uses transform so the prompt visually tracks the active line.
+ */
+export function updatePromptPosition(
+  textarea: HTMLTextAreaElement | null,
+  prompt: HTMLElement | null,
+): void {
+  if (!textarea || !prompt) return;
+  const before = textarea.value.substring(0, textarea.selectionStart);
+  const line = (before.match(/\n/g) || []).length;
+  const lh = parseFloat(getComputedStyle(textarea).lineHeight) || 17.5;
+  prompt.style.transform = `translateY(${line * lh}px)`;
+}

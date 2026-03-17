@@ -7,7 +7,7 @@
   import { processCommand } from '../../core/terminalCommands'
   import { runCalculation } from '../../core/calculationRunner'
   import { executeFrameworkSwitch } from '../../core/frameworkSwitchOrchestrator'
-  import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine } from '../../core/terminalHelpers'
+  import { sortDeliveryResults, getDiscountPercent, isScrolledToBottom, resizeTextarea, inputNeedsMoreLines, isCursorOnFirstLine, isCursorOnLastLine, updatePromptPosition } from '../../core/terminalHelpers'
   import { getTabState, setTabState } from '../../core/tabStateManager'
   import { CommandHistoryNavigator } from '../../core/commandHistory'
   import { useSession } from '../sessionStore.svelte'
@@ -16,6 +16,7 @@
   let { tab, onupdate }: { tab: TabData; onupdate: (updates: Partial<TabData>) => void } = $props()
 
   let inputRef: HTMLTextAreaElement | null = $state(null)
+  let promptRef: HTMLSpanElement | null = $state(null)
   let scrollAreaRef: HTMLDivElement | null = $state(null)
   let clearMarkerRef: HTMLDivElement | null = $state(null)
   const cmdHistory = new CommandHistoryNavigator(tab.id)
@@ -77,6 +78,7 @@
             if (inputRef) {
               inputRef.selectionStart = inputRef.selectionEnd = pos + 1
               resizeTextarea(inputRef)
+              updatePromptPosition(inputRef, promptRef)
             }
           })
         }
@@ -87,7 +89,12 @@
       e.preventDefault()
       currentInput = ''
       cmdHistory.resetCursor()
-      tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
+      tick().then(() => {
+        if (inputRef) {
+          resizeTextarea(inputRef)
+          updatePromptPosition(inputRef, promptRef)
+        }
+      })
     } else if (e.key === 'ArrowUp') {
       if (inputRef && currentInput.includes('\n') && !isCursorOnFirstLine(inputRef)) {
         return
@@ -96,7 +103,12 @@
       const prev = cmdHistory.navigateUp(currentInput)
       if (prev !== null) {
         currentInput = prev
-        tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
+        tick().then(() => {
+          if (inputRef) {
+            resizeTextarea(inputRef)
+            updatePromptPosition(inputRef, promptRef)
+          }
+        })
       }
     } else if (e.key === 'ArrowDown') {
       if (inputRef && currentInput.includes('\n') && !isCursorOnLastLine(inputRef)) {
@@ -105,7 +117,12 @@
       e.preventDefault()
       const next = cmdHistory.navigateDown()
       currentInput = next
-      tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
+      tick().then(() => {
+        if (inputRef) {
+          resizeTextarea(inputRef)
+          updatePromptPosition(inputRef, promptRef)
+        }
+      })
     }
   }
 
@@ -536,13 +553,15 @@
     {/if}
 
     <!-- Input line -->
-    <div class="flex gap-2">
-      <span class="text-pink-400 select-none">❯</span>
+    <div class="flex gap-2 items-start">
+      <span bind:this={promptRef} class="text-pink-400 select-none pt-1 transition-transform duration-75">❯</span>
       <textarea
         bind:this={inputRef}
         value={currentInput}
-        oninput={handleTextareaInput}
+        oninput={(e) => { handleTextareaInput(e); updatePromptPosition(inputRef, promptRef); }}
         onkeydown={handleKeyDown}
+        onkeyup={() => updatePromptPosition(inputRef, promptRef)}
+        onclick={() => updatePromptPosition(inputRef, promptRef)}
         placeholder={isConnected ? 'Enter input or type a command...' : 'Type /connect to reconnect...'}
         class="flex-1 bg-transparent border-none outline-none text-zinc-100 placeholder:text-zinc-700 font-mono text-sm resize-none max-h-40 overflow-y-auto scrollbar-hide leading-tight pt-1"
         spellcheck="false"

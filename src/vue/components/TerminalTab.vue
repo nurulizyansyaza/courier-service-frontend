@@ -175,19 +175,19 @@ function handleKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     currentInput.value = ''
     cmdHistory.resetCursor()
-    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
+    nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
     const prev = cmdHistory.navigateUp(currentInput.value)
     if (prev !== null) {
       currentInput.value = prev
-      setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
+      nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
     }
   } else if (e.key === 'ArrowDown') {
     e.preventDefault()
     const next = cmdHistory.navigateDown()
     currentInput.value = next
-    setTimeout(() => { if (inputRef.value) resizeTextarea(inputRef.value) }, 0)
+    nextTick(() => { if (inputRef.value) resizeTextarea(inputRef.value) })
   }
 }
 </script>

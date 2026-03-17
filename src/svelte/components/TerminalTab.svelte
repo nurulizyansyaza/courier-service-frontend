@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import type { TabData, ParsedResult, HistoryEntry } from '../../core/types'
   import { setOffers } from '@nurulizyansyaza/courier-service-core'
   import { MOTORCYCLE_ART, COURIER_ART, FRAMEWORK_COLORS } from '../../core/constants'
@@ -72,19 +73,19 @@
       e.preventDefault()
       currentInput = ''
       cmdHistory.resetCursor()
-      setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
+      tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const prev = cmdHistory.navigateUp(currentInput)
       if (prev !== null) {
         currentInput = prev
-        setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
+        tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = cmdHistory.navigateDown()
       currentInput = next
-      setTimeout(() => { if (inputRef) resizeTextarea(inputRef) }, 0)
+      tick().then(() => { if (inputRef) resizeTextarea(inputRef) })
     }
   }
 

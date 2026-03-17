@@ -352,19 +352,19 @@ export function TerminalTab({
                 e.preventDefault();
                 setCurrentInput("");
                 cmdHistory.resetCursor();
-                setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+                if (inputRef.current) { inputRef.current.value = ""; resizeTextarea(inputRef.current); }
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 const prev = cmdHistory.navigateUp(currentInput);
                 if (prev !== null) {
                   setCurrentInput(prev);
-                  setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+                  if (inputRef.current) { inputRef.current.value = prev; resizeTextarea(inputRef.current); }
                 }
               } else if (e.key === "ArrowDown") {
                 e.preventDefault();
                 const next = cmdHistory.navigateDown();
                 setCurrentInput(next);
-                setTimeout(() => { if (inputRef.current) resizeTextarea(inputRef.current); }, 0);
+                if (inputRef.current) { inputRef.current.value = next; resizeTextarea(inputRef.current); }
               }
             }}
             placeholder={isConnected ? "Enter input or type a command..." : "Type /connect to reconnect..."}

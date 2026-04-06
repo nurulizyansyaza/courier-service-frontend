@@ -172,7 +172,7 @@ graph TB
 graph TB
     User["User types<br/>'use vue'"] --> Check{"Dev or Prod?"}
     Check -->|"Dev"| Vite["POST /__api/switch-framework<br/>Vite restarts with new config"]
-    Check -->|"Prod"| Nav["Navigate to /vue/tabId<br/>Nginx serves Vue build"]
+    Check -->|"Prod"| Nav["Navigate to /vue/tabId<br/>CloudFront serves Vue build"]
     Vite --> Reload["Page reloads<br/>with new framework"]
     Nav --> Reload
     Reload --> Restore["Restore session<br/>from sessionStorage"]
@@ -197,7 +197,7 @@ Or edit `framework.config.json`:
 { "framework": "react" }
 ```
 
-**Production mode** — all three frameworks are deployed simultaneously to the homelab at `/react/`, `/vue/`, `/svelte/`. The `use <framework>` command navigates the user's browser to the corresponding URL. Framework switching is **per-user** — each user independently chooses their framework without affecting others.
+**Production mode** — all three frameworks are deployed simultaneously to S3 at `/react/`, `/vue/`, `/svelte/`. The `use <framework>` command navigates the user's browser to the corresponding URL. Framework switching is **per-user** — each user independently chooses their framework without affecting others.
 
 ### URL Routing
 
@@ -218,7 +218,7 @@ Tab IDs are sequential integers (1, 2, 3, …) for clean, readable URLs.
 
 - **Tab switch** — updates the URL via `history.replaceState` (no page reload). The framework segment changes to match the selected tab's framework.
 - **Framework switch** — navigates to `/<new-framework>/<tabId>` (full page load to serve the correct build). Only the active terminal tab's framework label is updated; other tabs retain their original labels. The tab's framework is explicitly persisted to `sessionStorage` via `patchTabUIState` before navigation, avoiding race conditions with Vite server restart.
-- **Page reload** — in production, Nginx serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`. Each tab's framework label is restored independently from the persisted session.
+- **Page reload** — in production, CloudFront serves the correct framework build based on the URL prefix. The tab ID from the URL is used to restore the correct active tab from `sessionStorage`. Each tab's framework label is restored independently from the persisted session.
 - **Fresh session (browser close → reopen)** — `sessionStorage` is cleared when the browser closes, so a new session starts with the default framework (`react`) and one tab. If the URL or dev server was left on a non-default framework, the app automatically resets by switching back to the default.
 
 ### Tab Independence

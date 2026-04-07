@@ -9,7 +9,7 @@ export interface SwitchResult {
 /**
  * Returns the production URL path for a given framework and optional tab ID.
  * Format: `/<framework>/<tabId>` — each framework build is hosted at
- * `/<framework>/` on CloudFront.
+ * `/<framework>/` on the homelab Nginx.
  */
 export function getProductionUrl(framework: Framework, tabId?: string): string {
   return buildPath(framework, tabId);
@@ -25,7 +25,7 @@ function isDevMode(): boolean {
  * Dev mode:  Updates URL via replaceState, then POST to
  *            `/__api/switch-framework` (Vite dev server plugin).
  * Production: Navigates to `/<framework>/<tabId>` — all three frameworks
- *             are served simultaneously from S3 via CloudFront.
+ *             are served simultaneously from the homelab Nginx server.
  *
  * @param tabId  The active terminal tab ID, embedded in the URL so the
  *               correct tab is restored after the page reloads.

@@ -36,7 +36,7 @@ export function buildPath(framework: Framework, tabId?: string): string {
  * - tab2 (vue)   → `/vue/tab2`
  *
  * In production a page refresh after a tab switch will load the correct
- * framework build from CloudFront (`/<framework>/index.html`).
+ * framework build from the homelab Nginx server (`/<framework>/index.html`).
  */
 export function updateUrl(framework: Framework, tabId: string): void {
   const path = buildPath(framework, tabId);
